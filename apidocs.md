@@ -39,6 +39,8 @@ Tokens are issued by `POST /api/admin/login` and expire after **7 days** by defa
 12. [Email Notifications](#12-email-notifications)
 13. [Error Reference](#13-error-reference)
 
+> 🔒 = requires `Authorization: Bearer <token>` header
+
 ---
 
 ## 1. Products
@@ -76,8 +78,8 @@ GET /api/products?search=shea
       "category": "Finished Products",
       "badge": "Best Seller",
       "units": [
-        { "label": "250ml", "price": 45, "weight": 0.3 },
-        { "label": "500ml", "price": 80, "weight": 0.6 }
+        { "label": "250ml", "price": 45, "weight": 0.3, "length": 10, "width": 8, "height": 8 },
+        { "label": "500ml", "price": 80, "weight": 0.6, "length": 15, "width": 10, "height": 10 }
       ],
       "image": "https://ik.imagekit.io/c9rqojioo/fp1.jpg",
       "images": [],
@@ -380,46 +382,59 @@ Admin endpoint — advances an order to a new status and appends a tracking even
 
 ## 4. Couriers
 
+Shipping rates are powered by **Shipbubble**. The flow is: validate sender address → validate receiver address → fetch available courier rates.
+
 ### `GET /api/couriers`
 
-Returns a list of all supported carrier services from **Terminal Africa**.
+Returns an empty array. Carrier discovery is handled implicitly by `POST /api/couriers/calculate`.
 
 **Response `200`**
 
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "terminal_carrier_id",
-      "name": "DHL Express",
-      "logo": "https://...",
-      "is_active": true
-    }
-  ]
-}
+{ "success": true, "data": [] }
 ```
 
 ---
 
 ### `POST /api/couriers/calculate`
 
-Calculates real-time shipping quotes from **Terminal Africa** based on the weight of items and the delivery address.
+Calculates real-time shipping quotes from **Shipbubble** based on the cart items and delivery address. Internally this validates both the sender and receiver addresses with Shipbubble, then fetches available courier rates.
 
 **Request Body**
 
 ```json
 {
-  "items": [{ "productId": "fp1", "unitLabel": "250ml", "quantity": 2 }],
+  "items": [
+    { "productId": "664f1a2b3c4d5e6f7a8b9c0d", "unitLabel": "250ml", "quantity": 2 }
+  ],
   "shippingAddress": {
-    "address": "24 Kano Road",
-    "city": "Abuja",
-    "state": "FCT",
+    "address": "21 Allen Avenue",
+    "city": "Ikeja",
+    "state": "Lagos",
     "country": "Nigeria",
-    "postal": "900001"
+    "postal": "100001",
+    "phone": "08098765432",
+    "firstName": "Fatima",
+    "lastName": "Bello",
+    "email": "fatima@example.com"
   }
 }
 ```
+
+| Field                       | Required | Notes                                    |
+| --------------------------- | -------- | ---------------------------------------- |
+| `items`                     | Yes      | Non-empty array                          |
+| `items[].productId`         | Yes      | Must exist in DB                         |
+| `items[].unitLabel`         | Yes      | Must exist on that product               |
+| `items[].quantity`          | Yes      | Integer ≥ 1                              |
+| `shippingAddress.address`   | Yes      |                                          |
+| `shippingAddress.city`      | Yes      |                                          |
+| `shippingAddress.state`     | Yes      |                                          |
+| `shippingAddress.country`   | No       | Appended to address for validation       |
+| `shippingAddress.phone`     | No       | Used for receiver address validation     |
+| `shippingAddress.firstName` | No       | Used for receiver address validation     |
+| `shippingAddress.lastName`  | No       | Used for receiver address validation     |
+| `shippingAddress.email`     | No       | Used for receiver address validation     |
 
 **Response `200`**
 
@@ -427,21 +442,37 @@ Calculates real-time shipping quotes from **Terminal Africa** based on the weigh
 {
   "success": true,
   "data": {
-    "totalWeight": 0.5,
+    "totalWeight": 0.6,
     "rates": [
       {
-        "_id": "rate_abc123",
-        "name": "DHL Express",
-        "description": "Express Shipping",
-        "price": 12500,
-        "estimatedDays": 3,
-        "estimatedLabel": "Within 3 days",
-        "carrier_logo": "https://..."
+        "_id": "12",
+        "name": "GIG Logistics",
+        "description": "1-2 working days",
+        "price": 5500,
+        "estimatedDays": 2,
+        "estimatedLabel": "1-2 working days",
+        "courier_id": 12,
+        "courier_name": "GIG Logistics",
+        "total": 5500,
+        "currency": "NGN",
+        "delivery_eta": "1-2 working days",
+        "request_token": "b724643e35047b44bf6499ce32dec6bf...",
+        "service_code": "GIGL_EXPRESS"
+      },
+      {
+        "_id": "18",
+        "name": "Kwik",
+        "description": "Same day",
+        "price": 4200,
+        "estimatedDays": 1,
+        "estimatedLabel": "Same day"
       }
     ]
   }
 }
 ```
+
+> **Important:** Pass the chosen rate's `_id` as `courierId` when creating an order. The `request_token` and `service_code` from the chosen rate are saved internally on the order for later shipment creation — the frontend does not need to store them.
 
 ---
 
@@ -449,7 +480,7 @@ Calculates real-time shipping quotes from **Terminal Africa** based on the weigh
 
 ### `GET /api/track/:orderNumber`
 
-Public endpoint. Looks up an order by number and returns a complete, render-ready tracking timeline. If the order has been booked on **Terminal Africa**, it automatically merges live carrier updates into the timeline.
+Public endpoint. Returns a complete, render-ready tracking timeline for an order. Once admin has started the shipment, live status is fetched from **Shipbubble** (`GET /shipping/labels/list/:order_id`) and merged into the response.
 
 **Example:** `GET /api/track/OCL-10001`
 
@@ -463,10 +494,18 @@ Public endpoint. Looks up an order by number and returns a complete, render-read
   "data": {
     "orderNumber": "OCL-10001",
     "estimatedDelivery": "Monday, 19 May 2026",
-    "carrier": "DHL Express",
+    "carrier": "Redstar",
     "origin": "Lagos",
     "destination": "24 Kano Road, Abuja, FCT",
     "status": "shipped",
+    "trackingUrl": "https://tracking.shipbubble.com/SB-6B211535C528",
+    "trackingCode": "SA01203663",
+    "trackingMessage": "WaybillNumber: SA01203663",
+    "shipbubbleOrderId": "SB-6B211535C528",
+    "packageStatusHistory": [
+      { "status": "Pending", "datetime": "2026-05-13 22:58:02" }
+    ],
+    "liveTracking": { },
     "events": [
       {
         "status": "processing",
@@ -513,12 +552,24 @@ Public endpoint. Looks up an order by number and returns a complete, render-read
 }
 ```
 
+**Response fields:**
+
+| Field                  | Present when                          | Description                                              |
+| ---------------------- | ------------------------------------- | -------------------------------------------------------- |
+| `trackingUrl`          | After shipment started                | Shipbubble live tracking page for the customer           |
+| `trackingCode`         | After shipment started                | Courier waybill / tracking code (e.g. `SA01203663`)      |
+| `trackingMessage`      | After shipment started                | Courier's tracking message string                        |
+| `shipbubbleOrderId`    | After shipment started                | Shipbubble order ID (e.g. `SB-6B211535C528`)             |
+| `packageStatusHistory` | After shipment started                | Raw status history array from Shipbubble                 |
+| `liveTracking`         | After shipment started                | Full raw Shipbubble label object                         |
+
 **Timeline rules:**
 
 - `done: true` — status came before the current one
 - `active: true` — this is the current status
 - `done: false, active: false` — not yet reached
 - `timestamp: null` — event has not occurred yet
+- Live Shipbubble status advances the timeline automatically if it is ahead of the internal status
 
 ---
 
@@ -627,19 +678,18 @@ Returns the currently authenticated admin's info decoded from the token.
 
 ### `POST /api/admin/products` 🔒
 
-Creates a new product.
+Creates a new product. The `_id` is auto-generated by MongoDB — do not send it.
 
 **Request Body**
 
 ```json
 {
-  "_id": "fp5",
   "name": "OCLA Whipped Shea Cream",
   "category": "Finished Products",
   "badge": "New",
   "units": [
-    { "label": "150ml", "price": 35, "weight": 0.2 },
-    { "label": "300ml", "price": 60, "weight": 0.4 }
+    { "label": "150ml", "price": 35, "weight": 0.2, "length": 10, "width": 8, "height": 8 },
+    { "label": "300ml", "price": 60, "weight": 0.4, "length": 14, "width": 10, "height": 10 }
   ],
   "image": "https://ik.imagekit.io/c9rqojioo/products/fp5-main.jpg",
   "images": ["https://ik.imagekit.io/c9rqojioo/products/fp5-2.jpg"],
@@ -657,10 +707,9 @@ Creates a new product.
 
 | Field               | Required | Notes                                               |
 | ------------------- | -------- | --------------------------------------------------- |
-| `_id`               | Yes      | Unique string ID, e.g. `"fp5"`                      |
 | `name`              | Yes      |                                                     |
 | `category`          | Yes      | Free text — drives `/api/products/categories`       |
-| `units`             | Yes      | Array of `{ label, price }`, min 1 item             |
+| `units`             | Yes      | Array, min 1 item — see unit fields below           |
 | `image`             | Yes      | Primary image URL (upload via media endpoint first) |
 | `description`       | Yes      |                                                     |
 | `inci`              | Yes      |                                                     |
@@ -674,8 +723,20 @@ Creates a new product.
 | `video`             | No       | Video URL                                           |
 | `features`          | No       | Array of feature bullet strings                     |
 
+**Unit fields (`units[]`)**
+
+| Field    | Required | Notes                                               |
+| -------- | -------- | --------------------------------------------------- |
+| `label`  | Yes      | e.g. `"150ml"`, `"500g"`                            |
+| `price`  | Yes      | Price in USD                                        |
+| `weight` | Yes      | Weight in **kg** — used for shipping rate calc      |
+| `length` | No       | Package length in **cm** (default: `10`)            |
+| `width`  | No       | Package width in **cm** (default: `10`)             |
+| `height` | No       | Package height in **cm** (default: `10`)            |
+
+> `weight`, `length`, `width`, `height` are used by Shipbubble when fetching courier rates and creating shipments. Set them accurately for correct pricing.
+
 **Response `201`** — full product object  
-**Response `409`** — product with that `_id` already exists  
 **Response `400`** — missing required fields or invalid units
 
 ---
@@ -697,6 +758,8 @@ Updates any subset of product fields. Only the fields you send are changed.
 ```
 
 **Updatable fields:** `name`, `category`, `units`, `image`, `images`, `video`, `badge`, `description`, `inci`, `grade`, `shelfLife`, `storage`, `safety`, `usageInstructions`, `features`
+
+> When updating `units`, include `weight`, `length`, `width`, `height` on each unit so shipping rates remain accurate.
 
 **Response `200`** — full updated product object  
 **Response `404`** — product not found
@@ -810,9 +873,7 @@ Returns a paginated list of all orders, newest first.
 ```json
 {
   "success": true,
-  "data": [
-    /* array of order objects */
-  ],
+  "data": [ /* array of order objects */ ],
   "pagination": {
     "page": 1,
     "limit": 20,
@@ -822,7 +883,37 @@ Returns a paginated list of all orders, newest first.
 }
 ```
 
-> To update an order's status, use `PATCH /api/orders/:id/status` (see [Orders](#3-orders)).
+---
+
+### `POST /api/admin/orders/:id/ship` 🔒
+
+Starts the shipment for an order via **Shipbubble**. Uses the `request_token`, `service_code`, and `courier_id` saved on the order at checkout time.
+
+**What this does:**
+
+1. Calls `POST https://api.shipbubble.com/v1/shipping/labels` to create the shipment
+2. Saves `shipbubbleOrderId` and `trackingUrl` on the order
+3. Sets order `status` → `shipped` and appends a tracking event
+4. Sends the **"Your order has shipped"** email to the customer, with the Shipbubble tracking URL
+
+**Request Body** — none required
+
+**Response `200`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "shipbubbleOrderId": "SB-2CF48224272",
+    "trackingUrl": "https://tracking.shipbubble.com/SB-2CF48224272"
+  }
+}
+```
+
+**Response `400`** — shipment already created, or order is missing Shipbubble rate data  
+**Response `404`** — order not found
+
+> To manually update an order's status (pack, mark delivered, etc.), use `PATCH /api/orders/:id/status` (see [Orders](#3-orders)).
 
 ---
 
@@ -867,7 +958,7 @@ All customer emails include:
 - Order number and item summary
 - Grand total with delivery breakdown
 - Estimated delivery date
-- A tracking link to `{FRONTEND_URL}/track/{orderNumber}`
+- A **"Track My Delivery"** button — links to the Shipbubble live tracking page (`trackingUrl`) once a shipment is started, otherwise falls back to `{FRONTEND_URL}/track/{orderNumber}`
 
 Bank transfer confirmation emails additionally include Zenith Bank account details.
 
@@ -887,7 +978,7 @@ All error responses follow this shape:
 | `401`  | Unauthorized — missing, invalid, or expired token                 |
 | `402`  | Payment required — Korapay payment not confirmed                  |
 | `404`  | Resource not found                                                |
-| `409`  | Conflict — e.g. duplicate product `_id`                           |
+| `409`  | Conflict — e.g. duplicate resource                                |
 | `429`  | Too many requests — rate limit exceeded (100 req / 15 min per IP) |
 | `500`  | Internal server error                                             |
 
@@ -906,7 +997,7 @@ All error responses follow this shape:
 | `ADMIN_EMAIL`                | Yes      | Admin email — receives new order alerts                           |
 | `KORAPAY_SECRET_KEY`         | Yes      | Korapay secret key for payment and webhook verification           |
 | `KORAPAY_PUBLIC_KEY`         | Yes      | Korapay public key                                                |
-| `TERMINAL_AFRICA_SECRET_KEY` | Yes      | Terminal Africa secret key for shipping and tracking              |
+| `SHIPBUBBLE_API_KEY`         | Yes      | Shipbubble API key for shipping rates and shipment creation       |
 | `IMAGEKIT_PUBLIC_KEY`        | Yes      | ImageKit public key                                               |
 | `IMAGEKIT_PRIVATE_KEY`       | Yes      | ImageKit private key                                              |
 | `IMAGEKIT_URL_ENDPOINT`      | Yes      | ImageKit endpoint, e.g. `https://ik.imagekit.io/c9rqojioo`        |

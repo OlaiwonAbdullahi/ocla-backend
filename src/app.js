@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 
+const connectDB = require("./config/db");
 const productRoutes = require("./routes/products");
 const orderRoutes = require("./routes/orders");
 const trackingRoutes = require("./routes/tracking");
@@ -47,6 +48,12 @@ app.use(
 
 app.use(mongoSanitize);
 app.use(morgan("dev"));
+
+// Ensure the DB is connected before any API route runs.
+// The cached-connection pattern in connectDB makes this a no-op on warm containers.
+app.use("/api", (req, res, next) => {
+  connectDB().then(() => next()).catch(next);
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
