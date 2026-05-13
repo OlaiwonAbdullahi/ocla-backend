@@ -62,7 +62,7 @@ async function createOrder(req, res, next) {
       lastName: contact.lastName,
       email: contact.email,
       phone: contact.phone,
-    });
+    }, items);
     const courier = availableRates.find((r) => r._id === courierId);
 
     if (!courier)
@@ -161,7 +161,7 @@ async function createOrder(req, res, next) {
       courierName: courier.name,
       deliveryPrice: deliveryPriceUsd,
       estimatedDays: courier.estimatedDays,
-      terminalRateId: courier._id, // Store Terminal Africa rate ID
+      terminalRateId: courier._id, // Store Shipbubble courier ID
 
       subtotal,
       grandTotal,

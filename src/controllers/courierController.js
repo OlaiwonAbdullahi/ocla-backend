@@ -2,25 +2,13 @@ const {
   calculateTotalWeight,
   getDynamicShippingRates,
 } = require("../utils/shipping");
-const { getCarriers } = require("../config/terminal");
 
 // ── Public ────────────────────────────────────────────────────────────────────
 
-/**
- * Lists all available carriers from Terminal Africa
- */
-async function listCouriers(req, res, next) {
-  try {
-    const carriers = await getCarriers();
-    res.json({ success: true, data: carriers });
-  } catch (err) {
-    next(err);
-  }
+async function listCouriers(req, res) {
+  res.json({ success: true, data: [] });
 }
 
-/**
- * Calculates dynamic shipping rates based on weight and address via Terminal Africa
- */
 async function calculateShipping(req, res, next) {
   try {
     const { items, shippingAddress } = req.body;
@@ -41,7 +29,7 @@ async function calculateShipping(req, res, next) {
     }
 
     const totalWeight = await calculateTotalWeight(items);
-    const rates = await getDynamicShippingRates(totalWeight, shippingAddress);
+    const rates = await getDynamicShippingRates(totalWeight, shippingAddress, items);
 
     res.json({
       success: true,

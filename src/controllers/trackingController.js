@@ -1,5 +1,4 @@
 const Order = require('../models/Order');
-const { getShipmentTracking } = require('../config/terminal');
 
 const STATUS_ORDER = ['processing', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
 
@@ -18,38 +17,19 @@ async function trackOrder(req, res, next) {
       return next(err);
     }
 
-    let liveEvents = [];
-    let currentStatus = order.status;
-
-    // If we have a Terminal Africa Shipment ID, fetch live updates
-    if (order.terminalShipmentId) {
-      try {
-        const terminalData = await getShipmentTracking(order.terminalShipmentId);
-        if (terminalData && terminalData.status) {
-          currentStatus = mapTerminalStatus(terminalData.status);
-          liveEvents = terminalData.events || [];
-        }
-      } catch (err) {
-        console.error('Terminal Africa Tracking Sync Error:', err.message);
-      }
-    }
-
+    const currentStatus = order.status;
     const currentStatusIndex = STATUS_ORDER.indexOf(currentStatus);
 
-    // Build full timeline — merge internal events with live Terminal Africa events
     const timeline = STATUS_ORDER.map((status, i) => {
-      // Find internal event or map from live events
       const internalEvent = order.trackingEvents.find((e) => e.status === status);
-      const liveEvent = liveEvents.find(e => mapTerminalStatus(e.status) === status);
-
       const done = i < currentStatusIndex;
       const active = i === currentStatusIndex;
 
       return {
         status,
-        label: internalEvent?.label || liveEvent?.name || defaultLabel(status),
-        description: internalEvent?.description || liveEvent?.description || defaultDescription(status),
-        timestamp: internalEvent?.timestamp || liveEvent?.created_at || null,
+        label: internalEvent?.label || defaultLabel(status),
+        description: internalEvent?.description || defaultDescription(status),
+        timestamp: internalEvent?.timestamp || null,
         done,
         active,
       };
@@ -77,33 +57,11 @@ async function trackOrder(req, res, next) {
         destination,
         status: currentStatus,
         events: timeline,
-        terminalShipmentId: order.terminalShipmentId || null
       },
     });
   } catch (err) {
     next(err);
   }
-}
-
-/**
- * Maps Terminal Africa statuses to internal OCLA statuses
- */
-function mapTerminalStatus(terminalStatus) {
-  const map = {
-    'draft': 'processing',
-    'pending': 'processing',
-    'processing': 'processing',
-    'label_generated': 'packed',
-    'pickup_requested': 'packed',
-    'out_for_pickup': 'packed',
-    'picked_up': 'shipped',
-    'in_transit': 'shipped',
-    'out_for_delivery': 'out_for_delivery',
-    'delivered': 'delivered',
-    'returned': 'shipped',
-    'cancelled': 'processing'
-  };
-  return map[terminalStatus] || 'processing';
 }
 
 function defaultLabel(status) {

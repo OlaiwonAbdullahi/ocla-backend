@@ -1,22 +1,17 @@
 const Product = require("../models/Product");
-const { getTerminalRates } = require("../config/terminal");
+const {
+  validateAddress,
+  fetchShippingRates,
+  CATEGORY_ID,
+} = require("../config/shipbubble");
 
-// Default warehouse/pickup address
-const WAREHOUSE_ADDRESS = {
-  first_name: "OCLA",
-  last_name: "Botanicals",
+const SENDER_ADDRESS = {
+  name: "OCLA Botanical",
   email: "oclabotanical@gmail.com",
-  phone: "+2347014311814",
-  address: "Lekki Phase 1",
-  city: "Ikeja",
-  state: "Lagos",
-  country: "NG",
-  zip: "100001",
+  phone: "07014311814",
+  address: "15 Admiralty Way, Lekki Phase 1, Lagos,Nigeria",
 };
 
-/**
- * Calculates total weight of items
- */
 async function calculateTotalWeight(items) {
   let totalWeight = 0;
   for (const item of items) {
@@ -31,51 +26,100 @@ async function calculateTotalWeight(items) {
   return totalWeight;
 }
 
-/**
- * Fetches dynamic shipping rates from Terminal Africa
- */
-async function getDynamicShippingRates(totalWeight, deliveryAddress) {
-  try {
-    const deliveryPhone = deliveryAddress.phone || "+2348000000000";
-    const formattedPhone =
-      deliveryPhone.startsWith("0") && !deliveryPhone.startsWith("+")
-        ? `+234${deliveryPhone.substring(1)}`
-        : deliveryPhone;
+function parseEtaDays(etaString) {
+  if (!etaString) return 3;
+  const lower = etaString.toLowerCase();
+  if (lower.includes("same day")) return 1;
+  const nums = lower.match(/\d+/g);
+  if (nums && nums.length > 0) return Math.max(...nums.map(Number));
+  return 3;
+}
 
-    const quotes = await getTerminalRates({
-      pickup_address: WAREHOUSE_ADDRESS,
-      delivery_address: {
-        first_name: deliveryAddress.firstName || "Customer",
-        last_name: deliveryAddress.lastName || "User",
-        email: deliveryAddress.email || "customer@example.com",
-        phone: formattedPhone,
-        address: deliveryAddress.address,
-        city: deliveryAddress.city,
-        state: deliveryAddress.state,
-        country:
-          deliveryAddress.country === "Nigeria"
-            ? "NG"
-            : deliveryAddress.country,
-        zip: deliveryAddress.postal || "100001",
-      },
-      parcel: {
-        items: [], // Optional: can list items here if needed for customs
-        parcel_total_weight: totalWeight || 0.1, // Terminal requires min weight
+async function getDynamicShippingRates(
+  totalWeight,
+  deliveryAddress,
+  items = [],
+) {
+  try {
+    const phone = deliveryAddress.phone || "08000000000";
+    const normalizedPhone = phone.startsWith("+234")
+      ? `0${phone.slice(4)}`
+      : phone;
+
+    const senderAddressCode = await validateAddress(SENDER_ADDRESS);
+
+    const receiverAddressCode = await validateAddress({
+      name: `${deliveryAddress.firstName || "Customer"} ${deliveryAddress.lastName || ""}`.trim(),
+      email: deliveryAddress.email || "customer@example.com",
+      phone: normalizedPhone,
+      address: [
+        deliveryAddress.address,
+        deliveryAddress.city,
+        deliveryAddress.state,
+        deliveryAddress.country,
+      ]
+        .filter(Boolean)
+        .join(", "),
+    });
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const pickupDate = tomorrow.toISOString().split("T")[0];
+
+    // Build package_items from real product data
+    const packageItems = [];
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      if (!product) continue;
+      const unit = product.units.find((u) => u.label === item.unitLabel);
+      if (!unit) continue;
+      packageItems.push({
+        name: product.name,
+        description: unit.label,
+        unit_weight: String(unit.weight || 0.5),
+        unit_amount: String(unit.price || 0),
+        quantity: String(item.quantity || 1),
+      });
+    }
+
+    // Fallback if no valid items were resolved
+    if (packageItems.length === 0) {
+      packageItems.push({
+        name: "Product",
+        description: "Order item",
+        unit_weight: String(totalWeight || 0.5),
+        unit_amount: "0",
+        quantity: "1",
+      });
+    }
+
+    const rates = await fetchShippingRates({
+      sender_address_code: senderAddressCode,
+      reciever_address_code: receiverAddressCode,
+      pickup_date: pickupDate,
+      category_id: CATEGORY_ID,
+      package_items: packageItems,
+      service_type: "pickup",
+      package_dimension: {
+        length: 30,
+        width: 20,
+        height: 10,
       },
     });
 
-    return quotes.map((quote) => ({
-      _id: quote.rate_id, // Terminal's rate ID
-      name: quote.carrier_name,
-      description: quote.carrier_rate_description,
-      price: Math.round(quote.amount), // Total price in NGN
-      estimatedDays: Math.ceil(quote.delivery_eta / 1440), // Convert minutes to days
-      estimatedLabel: quote.delivery_time,
-      carrier_logo: quote.carrier_logo,
+    console.log("Shipbubble rates raw:", JSON.stringify(rates, null, 2));
+
+    return rates.map((rate) => ({
+      _id: String(rate.courier_id),
+      name: rate.courier_name,
+      description: rate.delivery_eta,
+      price: Math.round(rate.total),
+      estimatedDays: parseEtaDays(rate.delivery_eta),
+      estimatedLabel: rate.delivery_eta,
+      ...rate,
     }));
   } catch (err) {
-    console.error("Terminal Africa Rate Error:", err.message);
-    // Fallback or rethrow
+    console.error("Shipbubble Rate Error:", err.message);
     throw err;
   }
 }
