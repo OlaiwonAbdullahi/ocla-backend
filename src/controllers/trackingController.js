@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const { getShipmentTracking } = require('../config/shipbubble');
 
 const STATUS_ORDER = ['processing', 'packed', 'shipped', 'out_for_delivery', 'delivered'];
 
@@ -17,7 +18,28 @@ async function trackOrder(req, res, next) {
       return next(err);
     }
 
-    const currentStatus = order.status;
+    let currentStatus = order.status;
+    let liveTracking = null;
+    let packageStatusHistory = [];
+
+    // Fetch live tracking from Shipbubble if shipment has been created
+    if (order.shipbubbleOrderId) {
+      try {
+        liveTracking = await getShipmentTracking(order.shipbubbleOrderId);
+        if (liveTracking?.status) {
+          const mapped = mapShipbubbleStatus(liveTracking.status);
+          if (STATUS_ORDER.indexOf(mapped) > STATUS_ORDER.indexOf(currentStatus)) {
+            currentStatus = mapped;
+          }
+        }
+        if (Array.isArray(liveTracking?.package_status)) {
+          packageStatusHistory = liveTracking.package_status;
+        }
+      } catch (err) {
+        console.error('Shipbubble Tracking Error:', err.message);
+      }
+    }
+
     const currentStatusIndex = STATUS_ORDER.indexOf(currentStatus);
 
     const timeline = STATUS_ORDER.map((status, i) => {
@@ -47,6 +69,10 @@ async function trackOrder(req, res, next) {
       order.shippingAddress.state,
     ].join(', ');
 
+    const trackingUrl = liveTracking?.tracking_url || order.trackingUrl || null;
+    const trackingCode = liveTracking?.courier?.tracking_code || null;
+    const trackingMessage = liveTracking?.courier?.tracking_message || null;
+
     res.json({
       success: true,
       data: {
@@ -56,12 +82,30 @@ async function trackOrder(req, res, next) {
         origin: 'Lagos',
         destination,
         status: currentStatus,
+        trackingUrl,
+        trackingCode,
+        trackingMessage,
+        shipbubbleOrderId: order.shipbubbleOrderId || null,
+        packageStatusHistory,
         events: timeline,
       },
     });
   } catch (err) {
     next(err);
   }
+}
+
+function mapShipbubbleStatus(status) {
+  const map = {
+    pending: 'shipped',
+    picked_up: 'shipped',
+    in_transit: 'shipped',
+    out_for_delivery: 'out_for_delivery',
+    delivered: 'delivered',
+    cancelled: 'shipped',
+    returned: 'shipped',
+  };
+  return map[status] || 'shipped';
 }
 
 function defaultLabel(status) {

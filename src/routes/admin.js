@@ -9,6 +9,7 @@ const {
   updateProduct,
   deleteProduct,
   listOrders,
+  startShipment,
 } = require("../controllers/adminController");
 const { uploadSingle, uploadBatch } = require("../controllers/mediaController");
 const {
@@ -45,7 +46,8 @@ router.get("/currencies", listAllCurrencies);
 router.post("/currencies/sync", syncRates);
 router.patch("/currencies/:code", toggleCurrencyVisibility);
 
-// Orders (read + status update reuses the existing PATCH /api/orders/:id/status)
+// Orders
 router.get("/orders", listOrders);
+router.post("/orders/:id/ship", startShipment);
 
 module.exports = router;

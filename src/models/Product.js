@@ -5,13 +5,15 @@ const productUnitSchema = new mongoose.Schema(
     label: { type: String, required: true },
     price: { type: Number, required: true },
     weight: { type: Number, required: true, default: 0 }, // in kg
+    length: { type: Number, default: 10 }, // in cm
+    width: { type: Number, default: 10 },  // in cm
+    height: { type: Number, default: 10 }, // in cm
   },
   { _id: false }
 );
 
 const productSchema = new mongoose.Schema(
   {
-    _id: { type: String }, // e.g. "fp1", "co2"
     name: { type: String, required: true },
     category: { type: String, required: true },
     units: { type: [productUnitSchema], required: true },

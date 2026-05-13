@@ -1,4 +1,5 @@
 const imagekit = require('../config/imagekit');
+const { toFile } = require('@imagekit/nodejs');
 const path = require('path');
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -25,8 +26,9 @@ async function uploadToImageKit(file, folder) {
   const baseName = path.basename(file.originalname, ext).replace(/\s+/g, '-');
   const fileName = `${baseName}-${Date.now()}${ext}`;
 
-  const result = await imagekit.upload({
-    file: file.buffer,
+  const uploadable = await toFile(file.buffer, fileName, { type: file.mimetype });
+  const result = await imagekit.files.upload({
+    file: uploadable,
     fileName,
     folder: folder || '/products',
     useUniqueFileName: false,

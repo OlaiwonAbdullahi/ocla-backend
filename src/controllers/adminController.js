@@ -40,12 +40,12 @@ async function getMe(req, res) {
 async function createProduct(req, res, next) {
   try {
     const {
-      _id, name, category, units, image, images, video, badge,
+      name, category, units, image, images, video, badge,
       description, inci, grade, shelfLife, storage, safety,
       usageInstructions, features,
     } = req.body;
 
-    const missing = ['_id', 'name', 'category', 'units', 'image', 'description',
+    const missing = ['name', 'category', 'units', 'image', 'description',
       'inci', 'grade', 'shelfLife', 'storage', 'safety', 'usageInstructions']
       .filter((f) => !req.body[f]);
 
@@ -62,13 +62,8 @@ async function createProduct(req, res, next) {
       }
     }
 
-    const existing = await Product.findById(_id);
-    if (existing) {
-      return res.status(409).json({ success: false, message: `Product with id "${_id}" already exists` });
-    }
-
     const product = await Product.create({
-      _id, name, category, units, image,
+      name, category, units, image,
       images: images || [],
       video,
       badge,
@@ -135,6 +130,51 @@ async function deleteProduct(req, res, next) {
   }
 }
 
+// ── Shipment ──────────────────────────────────────────────────────────────────
+
+async function startShipment(req, res, next) {
+  try {
+    const Order = require('../models/Order');
+    const { createShipment } = require('../config/shipbubble');
+    const { sendShippedNotification } = require('../utils/email');
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+    if (order.shipbubbleOrderId) {
+      return res.status(400).json({ success: false, message: 'Shipment already created for this order' });
+    }
+    if (!order.shipbubbleRequestToken || !order.shipbubbleServiceCode || !order.shipbubbleCourierId) {
+      return res.status(400).json({ success: false, message: 'Order is missing Shipbubble rate data. Please re-create the order.' });
+    }
+
+    const shipment = await createShipment({
+      request_token: order.shipbubbleRequestToken,
+      service_code: order.shipbubbleServiceCode,
+      courier_id: order.shipbubbleCourierId,
+    });
+
+    order.shipbubbleOrderId = shipment.order_id;
+    order.trackingUrl = shipment.tracking_url;
+    order.carrier = shipment.courier?.name || order.courierName;
+    order.status = 'shipped';
+    order.trackingEvents.push({
+      status: 'shipped',
+      label: 'Shipped',
+      description: `Your order has been handed to ${shipment.courier?.name || 'the carrier'}.`,
+      timestamp: new Date(),
+    });
+    await order.save();
+
+    sendShippedNotification(order).catch(console.error);
+
+    res.json({ success: true, data: { shipbubbleOrderId: shipment.order_id, trackingUrl: shipment.tracking_url } });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ── Orders (read-only for admin) ──────────────────────────────────────────────
 
 async function listOrders(req, res, next) {
@@ -159,4 +199,4 @@ async function listOrders(req, res, next) {
   }
 }
 
-module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders };
+module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders, startShipment };

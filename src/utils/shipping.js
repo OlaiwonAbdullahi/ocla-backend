@@ -66,13 +66,16 @@ async function getDynamicShippingRates(
     tomorrow.setDate(tomorrow.getDate() + 1);
     const pickupDate = tomorrow.toISOString().split("T")[0];
 
-    // Build package_items from real product data
+    // Build package_items and aggregate dimensions from real product data
     const packageItems = [];
+    let maxLength = 0, maxWidth = 0, maxHeight = 0;
+
     for (const item of items) {
       const product = await Product.findById(item.productId);
       if (!product) continue;
       const unit = product.units.find((u) => u.label === item.unitLabel);
       if (!unit) continue;
+
       packageItems.push({
         name: product.name,
         description: unit.label,
@@ -80,6 +83,10 @@ async function getDynamicShippingRates(
         unit_amount: String(unit.price || 0),
         quantity: String(item.quantity || 1),
       });
+
+      if ((unit.length || 0) > maxLength) maxLength = unit.length || 0;
+      if ((unit.width || 0) > maxWidth) maxWidth = unit.width || 0;
+      if ((unit.height || 0) > maxHeight) maxHeight = unit.height || 0;
     }
 
     // Fallback if no valid items were resolved
@@ -101,9 +108,9 @@ async function getDynamicShippingRates(
       package_items: packageItems,
       service_type: "pickup",
       package_dimension: {
-        length: 30,
-        width: 20,
-        height: 10,
+        length: maxLength || 10,
+        width: maxWidth || 10,
+        height: maxHeight || 10,
       },
     });
 

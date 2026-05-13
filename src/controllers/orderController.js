@@ -161,7 +161,9 @@ async function createOrder(req, res, next) {
       courierName: courier.name,
       deliveryPrice: deliveryPriceUsd,
       estimatedDays: courier.estimatedDays,
-      terminalRateId: courier._id, // Store Shipbubble courier ID
+      shipbubbleRequestToken: courier.request_token || null,
+      shipbubbleServiceCode: courier.service_code || null,
+      shipbubbleCourierId: courier.courier_id ? String(courier.courier_id) : null,
 
       subtotal,
       grandTotal,

@@ -219,7 +219,7 @@ function orderConfirmationTemplate(order) {
         <p style="margin:0;font-size:14px;color:${BRAND.primary};font-weight:600;">✓ Payment via Korapay — we'll confirm once your payment is complete.</p>
        </div>`;
 
-  const trackUrl = `${process.env.FRONTEND_URL || "https://ocla.com"}/track/${order.orderNumber}`;
+  const trackUrl = `${process.env.FRONTEND_URL || "https://oclabotanicals.com"}/track/${order.orderNumber}`;
 
   const body = `
     ${heading(`Thank you, ${order.contactFirstName}!`)}
@@ -254,7 +254,9 @@ function orderConfirmationTemplate(order) {
 }
 
 function orderShippedTemplate(order) {
-  const trackUrl = `${process.env.FRONTEND_URL || "https://ocla.com"}/track/${order.orderNumber}`;
+  const trackUrl =
+    order.trackingUrl ||
+    `${process.env.FRONTEND_URL || "https://ocla.com"}/track/${order.orderNumber}`;
 
   const body = `
     ${heading("Your order is on its way! 🚚")}

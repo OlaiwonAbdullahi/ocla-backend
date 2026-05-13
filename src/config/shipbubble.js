@@ -42,4 +42,30 @@ async function fetchShippingRates(payload) {
   throw new Error(`Unexpected Shipbubble fetch_rates response shape: ${JSON.stringify(inner)}`);
 }
 
-module.exports = { validateAddress, fetchShippingRates, CATEGORY_ID };
+async function getShipmentTracking(orderId) {
+  const { data } = await client.get(`/shipping/labels/list/${orderId}`);
+  console.log("Shipbubble getShipmentTracking response:", JSON.stringify(data, null, 2));
+  if (data.status !== "success") {
+    throw new Error(data.message || "Failed to fetch tracking from Shipbubble");
+  }
+  // Response shape: { data: { results: [ {...} ] } }
+  const results = data.data?.results;
+  return Array.isArray(results) && results.length > 0 ? results[0] : null;
+}
+
+async function createShipment({ request_token, service_code, courier_id }) {
+  const { data } = await client.post("/shipping/labels", {
+    request_token,
+    service_code,
+    courier_id,
+    is_cod_label: false,
+    insurance_code: null,
+  });
+  console.log("Shipbubble createShipment response:", JSON.stringify(data, null, 2));
+  if (data.status !== "success") {
+    throw new Error(data.message || "Failed to create shipment with Shipbubble");
+  }
+  return data.data;
+}
+
+module.exports = { validateAddress, fetchShippingRates, createShipment, getShipmentTracking, CATEGORY_ID };
