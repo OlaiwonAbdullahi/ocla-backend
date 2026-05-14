@@ -1,16 +1,15 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const connectDB = require('./src/config/db');
 const Product = require('./src/models/Product');
+const Currency = require('./src/models/Currency');
 
 const products = [
   // ── Finished Products ──────────────────────────────────────────────
   {
-    _id: 'fp1',
     name: 'OCLA Glow Body Butter',
     category: 'Finished Products',
     badge: 'Best Seller',
-    units: [{ label: '250ml', price: 4500 }, { label: '500ml', price: 8000 }],
+    units: [{ label: '250ml', price: 45, weight: 0.3, length: 10, width: 10, height: 10 }, { label: '500ml', price: 80, weight: 0.6, length: 12, width: 12, height: 12 }],
     image: '/images/fp1.jpg',
     description: 'A luxurious whipped body butter enriched with shea, mango, and cocoa butter to deeply nourish and restore your skin\'s natural glow.',
     inci: 'Butyrospermum Parkii (Shea) Butter, Mangifera Indica (Mango) Seed Butter, Theobroma Cacao (Cocoa) Seed Butter, Simmondsia Chinensis (Jojoba) Seed Oil, Tocopherol (Vitamin E)',
@@ -22,11 +21,10 @@ const products = [
     features: ['Deeply moisturising', 'Non-greasy formula', 'Suitable for all skin types', 'Vegan-friendly'],
   },
   {
-    _id: 'fp2',
     name: 'OCLA Radiance Face Serum',
     category: 'Finished Products',
     badge: 'New',
-    units: [{ label: '30ml', price: 6500 }],
+    units: [{ label: '30ml', price: 65, weight: 0.1, length: 4, width: 4, height: 12 }],
     image: '/images/fp2.jpg',
     description: 'A brightening face serum with rosehip oil and vitamin C to even skin tone and reduce dark spots.',
     inci: 'Aqua, Niacinamide, Rosa Canina (Rosehip) Fruit Oil, Ascorbic Acid, Aloe Barbadensis Leaf Juice, Hyaluronic Acid',
@@ -38,11 +36,10 @@ const products = [
     features: ['Brightening', 'Reduces dark spots', 'Lightweight', 'Suitable for sensitive skin'],
   },
   {
-    _id: 'fp3',
     name: 'OCLA Herbal Hair Growth Oil',
     category: 'Finished Products',
     badge: 'Popular',
-    units: [{ label: '100ml', price: 3500 }, { label: '200ml', price: 6000 }],
+    units: [{ label: '100ml', price: 35, weight: 0.15, length: 5, width: 5, height: 14 }, { label: '200ml', price: 60, weight: 0.25, length: 6, width: 6, height: 16 }],
     image: '/images/fp3.jpg',
     description: 'A potent blend of castor, peppermint, and rosemary oils to stimulate hair growth and reduce breakage.',
     inci: 'Ricinus Communis (Castor) Seed Oil, Mentha Piperita (Peppermint) Oil, Rosmarinus Officinalis (Rosemary) Leaf Oil, Argania Spinosa (Argan) Kernel Oil',
@@ -54,10 +51,9 @@ const products = [
     features: ['Stimulates growth', 'Reduces breakage', 'Nourishes scalp', 'No mineral oils'],
   },
   {
-    _id: 'fp4',
     name: 'OCLA Soothing Body Scrub',
     category: 'Finished Products',
-    units: [{ label: '300g', price: 3200 }],
+    units: [{ label: '300g', price: 32, weight: 0.35, length: 10, width: 10, height: 8 }],
     image: '/images/fp4.jpg',
     description: 'A gentle exfoliating sugar scrub infused with sweet almond oil and lavender essential oil.',
     inci: 'Saccharum Officinarum (Sugar), Prunus Dulcis (Sweet Almond) Oil, Lavandula Angustifolia (Lavender) Oil, Tocopherol',
@@ -71,11 +67,10 @@ const products = [
 
   // ── Carrier Oils ──────────────────────────────────────────────────
   {
-    _id: 'co1',
     name: 'Cold-Pressed Jojoba Oil',
     category: 'Carrier Oils',
     badge: 'Best Seller',
-    units: [{ label: '100ml', price: 3200 }, { label: '250ml', price: 7000 }, { label: '500ml', price: 13000 }],
+    units: [{ label: '100ml', price: 32, weight: 0.12, length: 5, width: 5, height: 14 }, { label: '250ml', price: 70, weight: 0.28, length: 6, width: 6, height: 16 }, { label: '500ml', price: 130, weight: 0.55, length: 8, width: 8, height: 18 }],
     image: '/images/co1.jpg',
     description: 'Pure cold-pressed jojoba oil, closely resembling skin\'s natural sebum. Ideal for face, hair, and body.',
     inci: 'Simmondsia Chinensis (Jojoba) Seed Oil',
@@ -87,10 +82,9 @@ const products = [
     features: ['Non-comedogenic', 'Long shelf life', 'Balances sebum', 'Light texture'],
   },
   {
-    _id: 'co2',
     name: 'Organic Rosehip Seed Oil',
     category: 'Carrier Oils',
-    units: [{ label: '50ml', price: 4500 }, { label: '100ml', price: 8000 }],
+    units: [{ label: '50ml', price: 45, weight: 0.07, length: 4, width: 4, height: 12 }, { label: '100ml', price: 80, weight: 0.13, length: 5, width: 5, height: 14 }],
     image: '/images/co2.jpg',
     description: 'Rich in vitamins A and C, rosehip oil fades scars and brightens skin tone.',
     inci: 'Rosa Canina Fruit Oil',
@@ -102,10 +96,9 @@ const products = [
     features: ['Anti-ageing', 'Scar fading', 'Rich in vitamins', 'Cold-pressed'],
   },
   {
-    _id: 'co3',
     name: 'Virgin Coconut Oil',
     category: 'Carrier Oils',
-    units: [{ label: '250ml', price: 2800 }, { label: '500ml', price: 5000 }, { label: '1L', price: 9000 }],
+    units: [{ label: '250ml', price: 28, weight: 0.28, length: 8, width: 8, height: 10 }, { label: '500ml', price: 50, weight: 0.55, length: 10, width: 10, height: 12 }, { label: '1L', price: 90, weight: 1.05, length: 12, width: 12, height: 14 }],
     image: '/images/co3.jpg',
     description: 'Unrefined virgin coconut oil for skin, hair, and cooking.',
     inci: 'Cocos Nucifera (Coconut) Oil',
@@ -117,10 +110,9 @@ const products = [
     features: ['Multi-purpose', 'Unrefined', 'Solid at room temp', 'Food-grade'],
   },
   {
-    _id: 'co4',
     name: 'Sweet Almond Oil',
     category: 'Carrier Oils',
-    units: [{ label: '100ml', price: 2200 }, { label: '250ml', price: 4800 }, { label: '500ml', price: 8500 }],
+    units: [{ label: '100ml', price: 22, weight: 0.12, length: 5, width: 5, height: 14 }, { label: '250ml', price: 48, weight: 0.28, length: 6, width: 6, height: 16 }, { label: '500ml', price: 85, weight: 0.55, length: 8, width: 8, height: 18 }],
     image: '/images/co4.jpg',
     description: 'Light, nourishing sweet almond oil perfect for massage, skincare, and haircare.',
     inci: 'Prunus Dulcis (Sweet Almond) Oil',
@@ -134,10 +126,9 @@ const products = [
 
   // ── Essential Oils ────────────────────────────────────────────────
   {
-    _id: 'eo1',
     name: 'Lavender Essential Oil',
     category: 'Essential Oils',
-    units: [{ label: '10ml', price: 2500 }, { label: '30ml', price: 6500 }],
+    units: [{ label: '10ml', price: 25, weight: 0.05, length: 3, width: 3, height: 8 }, { label: '30ml', price: 65, weight: 0.1, length: 4, width: 4, height: 10 }],
     image: '/images/eo1.jpg',
     description: 'Steam-distilled lavender oil with calming and antibacterial properties.',
     inci: 'Lavandula Angustifolia Oil',
@@ -149,11 +140,10 @@ const products = [
     features: ['Calming', 'Antibacterial', 'Sleep aid', 'Versatile'],
   },
   {
-    _id: 'eo2',
     name: 'Peppermint Essential Oil',
     category: 'Essential Oils',
     badge: 'Best Seller',
-    units: [{ label: '10ml', price: 2200 }, { label: '30ml', price: 5800 }],
+    units: [{ label: '10ml', price: 22, weight: 0.05, length: 3, width: 3, height: 8 }, { label: '30ml', price: 58, weight: 0.1, length: 4, width: 4, height: 10 }],
     image: '/images/eo2.jpg',
     description: 'Refreshing peppermint oil ideal for headache relief, hair growth, and muscle soothing.',
     inci: 'Mentha Piperita Oil',
@@ -165,10 +155,9 @@ const products = [
     features: ['Cooling sensation', 'Stimulates scalp', 'Energising', 'Pain relief'],
   },
   {
-    _id: 'eo3',
     name: 'Tea Tree Essential Oil',
     category: 'Essential Oils',
-    units: [{ label: '10ml', price: 2800 }],
+    units: [{ label: '10ml', price: 28, weight: 0.05, length: 3, width: 3, height: 8 }],
     image: '/images/eo3.jpg',
     description: 'Powerful antimicrobial tea tree oil for acne, wounds, and scalp health.',
     inci: 'Melaleuca Alternifolia Leaf Oil',
@@ -180,10 +169,9 @@ const products = [
     features: ['Antimicrobial', 'Acne-fighting', 'Scalp health', 'Natural antiseptic'],
   },
   {
-    _id: 'eo4',
     name: 'Rosemary Essential Oil',
     category: 'Essential Oils',
-    units: [{ label: '10ml', price: 2500 }, { label: '30ml', price: 6000 }],
+    units: [{ label: '10ml', price: 25, weight: 0.05, length: 3, width: 3, height: 8 }, { label: '30ml', price: 60, weight: 0.1, length: 4, width: 4, height: 10 }],
     image: '/images/eo4.jpg',
     description: 'Stimulating rosemary essential oil known for hair growth and mental clarity.',
     inci: 'Rosmarinus Officinalis Leaf Oil',
@@ -197,11 +185,10 @@ const products = [
 
   // ── Butters ───────────────────────────────────────────────────────
   {
-    _id: 'bt1',
     name: 'Raw Shea Butter',
     category: 'Butters',
     badge: 'Best Seller',
-    units: [{ label: '250g', price: 2800 }, { label: '500g', price: 5200 }, { label: '1kg', price: 9500 }],
+    units: [{ label: '250g', price: 28, weight: 0.28, length: 10, width: 10, height: 8 }, { label: '500g', price: 52, weight: 0.55, length: 12, width: 12, height: 10 }, { label: '1kg', price: 95, weight: 1.05, length: 14, width: 14, height: 12 }],
     image: '/images/bt1.jpg',
     description: 'Unrefined Grade A shea butter sourced from West Africa. Rich in vitamins A, E, and F.',
     inci: 'Butyrospermum Parkii (Shea) Butter',
@@ -213,10 +200,9 @@ const products = [
     features: ['Unrefined Grade A', 'Rich in vitamins', 'Deeply moisturising', 'Ethically sourced'],
   },
   {
-    _id: 'bt2',
     name: 'Mango Seed Butter',
     category: 'Butters',
-    units: [{ label: '250g', price: 3500 }, { label: '500g', price: 6500 }],
+    units: [{ label: '250g', price: 35, weight: 0.28, length: 10, width: 10, height: 8 }, { label: '500g', price: 65, weight: 0.55, length: 12, width: 12, height: 10 }],
     image: '/images/bt2.jpg',
     description: 'Exotic mango seed butter with skin-softening and UV-protective properties.',
     inci: 'Mangifera Indica Seed Butter',
@@ -228,10 +214,9 @@ const products = [
     features: ['Skin softening', 'Mild UV protection', 'Light texture', 'Emollient'],
   },
   {
-    _id: 'bt3',
     name: 'Kokum Butter',
     category: 'Butters',
-    units: [{ label: '100g', price: 2500 }, { label: '250g', price: 5500 }],
+    units: [{ label: '100g', price: 25, weight: 0.12, length: 8, width: 8, height: 6 }, { label: '250g', price: 55, weight: 0.28, length: 10, width: 10, height: 8 }],
     image: '/images/bt3.jpg',
     description: 'Hard, non-comedogenic kokum butter ideal for lip balms and healing dry cracked skin.',
     inci: 'Garcinia Indica Seed Butter',
@@ -243,10 +228,9 @@ const products = [
     features: ['Non-comedogenic', 'Healing', 'Hard butter', 'Great for lip products'],
   },
   {
-    _id: 'bt4',
     name: 'Cocoa Butter (Deodorised)',
     category: 'Butters',
-    units: [{ label: '250g', price: 3000 }, { label: '500g', price: 5500 }, { label: '1kg', price: 9800 }],
+    units: [{ label: '250g', price: 30, weight: 0.28, length: 10, width: 10, height: 8 }, { label: '500g', price: 55, weight: 0.55, length: 12, width: 12, height: 10 }, { label: '1kg', price: 98, weight: 1.05, length: 14, width: 14, height: 12 }],
     image: '/images/bt4.jpg',
     description: 'Premium deodorised cocoa butter for use in body butters, lotions, and confections.',
     inci: 'Theobroma Cacao Seed Butter',
@@ -260,11 +244,10 @@ const products = [
 
   // ── Cacao ─────────────────────────────────────────────────────────
   {
-    _id: 'ca1',
     name: 'Raw Cacao Powder',
     category: 'Cacao',
     badge: 'Best Seller',
-    units: [{ label: '250g', price: 3500 }, { label: '500g', price: 6500 }, { label: '1kg', price: 12000 }],
+    units: [{ label: '250g', price: 35, weight: 0.28, length: 10, width: 10, height: 8 }, { label: '500g', price: 65, weight: 0.55, length: 12, width: 12, height: 10 }, { label: '1kg', price: 120, weight: 1.05, length: 14, width: 14, height: 12 }],
     image: '/images/ca1.jpg',
     description: 'Cold-pressed raw cacao powder, packed with antioxidants and minerals. No sugar, no additives.',
     inci: 'Theobroma Cacao Powder',
@@ -276,10 +259,9 @@ const products = [
     features: ['High antioxidants', 'No additives', 'Rich flavour', 'Superfood'],
   },
   {
-    _id: 'ca2',
     name: 'Cacao Nibs',
     category: 'Cacao',
-    units: [{ label: '200g', price: 3200 }, { label: '500g', price: 7000 }],
+    units: [{ label: '200g', price: 32, weight: 0.23, length: 10, width: 8, height: 6 }, { label: '500g', price: 70, weight: 0.55, length: 12, width: 10, height: 8 }],
     image: '/images/ca2.jpg',
     description: 'Crushed cacao beans for a crunchy, bitter chocolate addition to granola, smoothies, and baking.',
     inci: 'Theobroma Cacao Bean Pieces',
@@ -291,10 +273,9 @@ const products = [
     features: ['Crunchy texture', 'Antioxidant-rich', 'Unsweetened', 'Keto-friendly'],
   },
   {
-    _id: 'ca3',
     name: 'Cacao Butter Wafers',
     category: 'Cacao',
-    units: [{ label: '250g', price: 4000 }, { label: '500g', price: 7500 }],
+    units: [{ label: '250g', price: 40, weight: 0.28, length: 10, width: 10, height: 6 }, { label: '500g', price: 75, weight: 0.55, length: 12, width: 12, height: 8 }],
     image: '/images/ca3.jpg',
     description: 'Food and cosmetic grade cacao butter wafers with a rich natural chocolate aroma.',
     inci: 'Theobroma Cacao Seed Butter',
@@ -307,13 +288,28 @@ const products = [
   },
 ];
 
+// Rates are approximate — run POST /api/admin/currencies/sync to refresh from Korapay
+const currencies = [
+  { code: 'NGN', name: 'Nigerian Naira',   symbol: '₦',  rateToNgn: 1,    isActive: true },
+  { code: 'USD', name: 'US Dollar',        symbol: '$',  rateToNgn: 1620, isActive: true },
+  { code: 'GBP', name: 'British Pound',    symbol: '£',  rateToNgn: 2060, isActive: true },
+  { code: 'EUR', name: 'Euro',             symbol: '€',  rateToNgn: 1780, isActive: true },
+  { code: 'CAD', name: 'Canadian Dollar',  symbol: 'C$', rateToNgn: 1190, isActive: false },
+  { code: 'AUD', name: 'Australian Dollar',symbol: 'A$', rateToNgn: 1050, isActive: false },
+];
+
 async function seed() {
   await connectDB();
 
   await Product.deleteMany({});
   await Product.insertMany(products);
+  console.log(`Seeded ${products.length} products`);
 
-  console.log(`Seeded ${products.length} products successfully.`);
+  for (const c of currencies) {
+    await Currency.findOneAndUpdate({ code: c.code }, c, { upsert: true, returnDocument: 'after' });
+  }
+  console.log(`Seeded ${currencies.length} currencies`);
+
   process.exit(0);
 }
 
