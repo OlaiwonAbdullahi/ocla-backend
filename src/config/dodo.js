@@ -1,23 +1,29 @@
-const axios = require('axios');
+const axios = require("axios");
 
 // Dodo Payments API — https://docs.dodopayments.com
 const client = axios.create({
-  baseURL: process.env.DODO_BASE_URL || 'https://live.dodopayments.com',
+  baseURL: process.env.DODO_BASE_URL || "https://test.dodopayments.com",
   headers: {
     Authorization: `Bearer ${process.env.DODO_API_KEY}`,
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
-async function createDodoPayment({ orderNumber, amountNaira, rateToNgn, email, name }) {
+async function createDodoPayment({
+  orderNumber,
+  amountNaira,
+  rateToNgn,
+  email,
+  name,
+}) {
   const amountUsd = parseFloat((amountNaira / rateToNgn).toFixed(2));
 
-  const { data } = await client.post('/payments', {
+  const { data } = await client.post("/payments", {
     amount: amountUsd,
-    currency: 'USD',
+    currency: "USD",
     reference: orderNumber,
     customer: { email, name },
-    redirect_url: `${process.env.FRONTEND_URL}/order/confirm?ref=${orderNumber}`,
+    redirect_url: `${process.env.FRONTEND_URL}order/confirm?ref=${orderNumber}`,
     metadata: { orderNumber },
   });
 
@@ -29,7 +35,9 @@ async function createDodoPayment({ orderNumber, amountNaira, rateToNgn, email, n
 }
 
 async function verifyDodoPayment(reference) {
-  const { data } = await client.get(`/payments/${encodeURIComponent(reference)}`);
+  const { data } = await client.get(
+    `/payments/${encodeURIComponent(reference)}`,
+  );
   return data; // { status, reference, amount, currency, ... }
 }
 
