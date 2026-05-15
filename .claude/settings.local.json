@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(node seed.js)"
+      "Bash(node seed.js)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\HP\\\\Desktop\\\\ocla-backend\" -Recurse -Filter \"*apidocs*\" -ErrorAction SilentlyContinue)"
     ]
   }
 }

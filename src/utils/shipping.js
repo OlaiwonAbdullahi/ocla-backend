@@ -77,10 +77,10 @@ async function getDynamicShippingRates(
       if (!unit) continue;
 
       packageItems.push({
-        name: product.name,
-        description: unit.label,
-        unit_weight: String(unit.weight || 0.5),
-        unit_amount: String(unit.price || 0),
+        name: item.name || product.name,
+        description: item.description || unit.label,
+        unit_weight: String(item.weight ?? unit.weight ?? 0.5),
+        unit_amount: String(item.amount ?? unit.price ?? 0),
         quantity: String(item.quantity || 1),
       });
 

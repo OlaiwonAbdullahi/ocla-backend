@@ -249,7 +249,11 @@ Creates a new order. This is the checkout submission endpoint.
     {
       "productId": "fp1",
       "unitLabel": "250ml",
-      "quantity": 2
+      "quantity": 2,
+      "name": "Frankincense Pure Oil",
+      "description": "250ml bottle",
+      "weight": 0.3,
+      "amount": 25.00
     }
   ]
 }
@@ -273,6 +277,10 @@ Creates a new order. This is the checkout submission endpoint.
 | `items[].productId`        | Yes      | must exist in DB                  |
 | `items[].unitLabel`        | Yes      | must exist on that product        |
 | `items[].quantity`         | Yes      | integer ≥ 1                       |
+| `items[].name`             | Yes      | product name (string)             |
+| `items[].description`      | Yes      | unit/variant description (string) |
+| `items[].weight`           | Yes      | weight in kg (number)             |
+| `items[].amount`           | Yes      | unit price in USD (number)        |
 
 **Response `201` — Bank Payment**
 

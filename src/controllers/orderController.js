@@ -86,8 +86,19 @@ async function createOrder(req, res, next) {
 
     const orderItems = [];
     for (const item of items) {
-      if (!item.productId || !item.unitLabel || !item.quantity) {
-        return bad(res, "Each item needs productId, unitLabel, and quantity");
+      if (
+        !item.productId ||
+        !item.unitLabel ||
+        !item.quantity ||
+        !item.name ||
+        !item.description ||
+        item.weight == null ||
+        item.amount == null
+      ) {
+        return bad(
+          res,
+          "Each item needs productId, unitLabel, quantity, name, description, weight, and amount",
+        );
       }
       if (
         !Number.isInteger(Number(item.quantity)) ||
