@@ -230,6 +230,7 @@ async function createOrder(req, res, next) {
         rateToNgn: usdCurrency.rateToNgn,
         email: contact.email,
         name: `${contact.firstName} ${contact.lastName}`,
+        country: addr.country,
       });
       // Store the Dodo payment reference for webhook matching
       await Order.findByIdAndUpdate(order._id, {

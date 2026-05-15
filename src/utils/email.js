@@ -4,6 +4,8 @@ const {
   orderShippedTemplate,
   orderDeliveredTemplate,
   newOrderAdminTemplate,
+  contactMessageTemplate,
+  contactAutoReplyTemplate,
 } = require('./emailTemplates');
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -48,9 +50,27 @@ async function sendNewOrderAdmin(order) {
   });
 }
 
+async function sendContactMessage({ name, email, subject, message }) {
+  await Promise.all([
+    // Notify admin
+    ADMIN_EMAIL && send({
+      to: ADMIN_EMAIL,
+      subject: `[Contact] ${subject}`,
+      html: contactMessageTemplate({ name, email, subject, message }),
+    }),
+    // Auto-reply to sender
+    send({
+      to: email,
+      subject: "We received your message — OCLA Botanical",
+      html: contactAutoReplyTemplate({ name }),
+    }),
+  ]);
+}
+
 module.exports = {
   sendOrderConfirmation,
   sendShippedNotification,
   sendDeliveredNotification,
   sendNewOrderAdmin,
+  sendContactMessage,
 };

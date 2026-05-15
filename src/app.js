@@ -13,6 +13,7 @@ const currencyRoutes = require("./routes/currencies");
 const adminRoutes = require("./routes/admin");
 const korapayRoutes = require("./routes/korapay");
 const dodoRoutes = require("./routes/dodo");
+const contactRoutes = require("./routes/contact");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
 const mongoSanitize = require("./middleware/sanitize");
 
@@ -73,6 +74,7 @@ app.use("/api/currencies", currencyRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/korapay", korapayRoutes);
 app.use("/api/dodo", dodoRoutes);
+app.use("/api/contact", contactRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

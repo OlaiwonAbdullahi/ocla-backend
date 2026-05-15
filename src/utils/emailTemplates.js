@@ -366,9 +366,46 @@ function newOrderAdminTemplate(order) {
   return layout(`New Order — ${order.orderNumber}`, body);
 }
 
+function contactMessageTemplate({ name, email, subject, message }) {
+  const body = `
+    ${heading("New Contact Form Submission")}
+    ${subheading(subject)}
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="padding:8px 0;font-size:14px;color:${BRAND.textMuted};width:100px;">From</td>
+        <td style="padding:8px 0;font-size:14px;color:${BRAND.text};font-weight:600;">${name}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;font-size:14px;color:${BRAND.textMuted};">Email</td>
+        <td style="padding:8px 0;font-size:14px;"><a href="mailto:${email}" style="color:${BRAND.primary};text-decoration:none;">${email}</a></td>
+      </tr>
+    </table>
+    ${divider()}
+    <p style="margin:16px 0 0;font-size:15px;color:${BRAND.text};line-height:1.7;white-space:pre-line;">${message}</p>
+  `;
+  return layout(subject, body);
+}
+
+function contactAutoReplyTemplate({ name }) {
+  const body = `
+    ${heading(`Hi ${name},`)}
+    ${subheading("Thanks for reaching out to OCLA Botanical!")}
+    <p style="font-size:15px;color:${BRAND.text};line-height:1.7;margin:0 0 16px;">
+      We've received your message and our team will get back to you within 1–2 business days.
+    </p>
+    <p style="font-size:15px;color:${BRAND.textMuted};line-height:1.7;margin:0;">
+      In the meantime, feel free to browse our collection at
+      <a href="${process.env.FRONTEND_URL || "https://ocla.com"}" style="color:${BRAND.primary};text-decoration:none;">${process.env.FRONTEND_URL || "https://ocla.com"}</a>.
+    </p>
+  `;
+  return layout("We received your message", body);
+}
+
 module.exports = {
   orderConfirmationTemplate,
   orderShippedTemplate,
   orderDeliveredTemplate,
   newOrderAdminTemplate,
+  contactMessageTemplate,
+  contactAutoReplyTemplate,
 };
