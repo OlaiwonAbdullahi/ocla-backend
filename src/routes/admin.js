@@ -17,6 +17,10 @@ const {
   toggleCurrencyVisibility,
   syncRates,
 } = require("../controllers/currencyController");
+const {
+  listContactMessages,
+  markContactRead,
+} = require("../controllers/contactController");
 
 // multer — memory storage, 100 MB ceiling (per-file limits enforced in controller)
 const upload = multer({
@@ -49,5 +53,9 @@ router.patch("/currencies/:code", toggleCurrencyVisibility);
 // Orders
 router.get("/orders", listOrders);
 router.post("/orders/:id/ship", startShipment);
+
+// Contact messages
+router.get("/contact-messages", listContactMessages);
+router.patch("/contact-messages/:id/read", markContactRead);
 
 module.exports = router;
