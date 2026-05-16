@@ -4,11 +4,15 @@ const ShippingZone = require("../models/ShippingZone");
 
 async function createZone(req, res, next) {
   try {
-    const { location, fee } = req.body;
+    const { location, fee, estimatedDays } = req.body;
     if (!location || fee == null) {
       return res.status(400).json({ success: false, message: "location and fee are required." });
     }
-    const zone = await ShippingZone.create({ location: location.trim(), fee: Number(fee) });
+    const zone = await ShippingZone.create({
+      location: location.trim(),
+      fee: Number(fee),
+      ...(estimatedDays != null && { estimatedDays: Number(estimatedDays) }),
+    });
     res.status(201).json({ success: true, data: zone });
   } catch (err) {
     if (err.code === 11000) {
@@ -20,10 +24,11 @@ async function createZone(req, res, next) {
 
 async function updateZone(req, res, next) {
   try {
-    const { location, fee } = req.body;
+    const { location, fee, estimatedDays } = req.body;
     const update = {};
     if (location !== undefined) update.location = location.trim();
     if (fee !== undefined) update.fee = Number(fee);
+    if (estimatedDays !== undefined) update.estimatedDays = Number(estimatedDays);
 
     if (!Object.keys(update).length) {
       return res.status(400).json({ success: false, message: "Provide location or fee to update." });
