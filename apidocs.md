@@ -30,12 +30,12 @@ Tokens are issued by `POST /api/admin/login` and expire after **7 days** by defa
 3. [Orders](#3-orders)
 4. [Couriers](#4-couriers)
 5. [Order Tracking](#5-order-tracking)
-6. [Korapay Payments](#6-korapay-payments)
+6. [Dodo Payments](#6-dodo-payments)
 7. [Admin — Auth](#7-admin--auth)
 8. [Admin — Product CRUD](#8-admin--product-crud)
 9. [Admin — Media Upload](#9-admin--media-upload)
 10. [Admin — Orders](#10-admin--orders)
-11. [Admin — Currencies](#11-admin--currencies)
+11. [Currencies](#11-currencies)
 12. [Email Notifications](#12-email-notifications)
 13. [Error Reference](#13-error-reference)
 
@@ -272,7 +272,7 @@ Creates a new order. This is the checkout submission endpoint.
 | `shippingAddress.address2` | No       | string                            |
 | `shippingAddress.postal`   | No       | string                            |
 | `courierId`                | Yes      | ID from `/api/couriers/calculate` |
-| `paymentMethod`            | Yes      | `bank` \| `korapay` \| `dodo`     |
+| `paymentMethod`            | Yes      | `dodo`                            |
 | `items`                    | Yes      | non-empty array                   |
 | `items[].productId`        | Yes      | must exist in DB                  |
 | `items[].unitLabel`        | Yes      | must exist on that product        |
@@ -282,7 +282,7 @@ Creates a new order. This is the checkout submission endpoint.
 | `items[].weight`           | Yes      | weight in kg (number)             |
 | `items[].amount`           | Yes      | unit price in USD (number)        |
 
-**Response `201` — Bank Payment**
+**Response `201`**
 
 ```json
 {
@@ -291,35 +291,16 @@ Creates a new order. This is the checkout submission endpoint.
     "orderNumber": "OCL-10001",
     "grandTotal": 92.5,
     "estimatedDelivery": "2026-05-19",
-    "paymentMethod": "bank",
-    "bankDetails": {
-      "bank": "Zenith Bank",
-      "accountName": "OCLA Botanical Ltd",
-      "accountNo": "1234567890"
+    "paymentMethod": "dodo",
+    "dodo": {
+      "checkoutUrl": "https://checkout.dodopayments.com/abc123",
+      "reference": "pay_xxx"
     }
   }
 }
 ```
 
-**Response `201` — Card Payment (Korapay)**
-
-```json
-{
-  "success": true,
-  "data": {
-    "orderNumber": "OCL-10001",
-    "grandTotal": 92.5,
-    "estimatedDelivery": "2026-05-14",
-    "paymentMethod": "korapay",
-    "korapay": {
-      "checkoutUrl": "https://checkout.korapay.com/abc123",
-      "reference": "OCL-10001"
-    }
-  }
-}
-```
-
-> Redirect the user to `korapay.checkoutUrl` to complete payment.
+> Redirect the user to `dodo.checkoutUrl` to complete payment.
 
 ---
 
@@ -581,25 +562,25 @@ Public endpoint. Returns a complete, render-ready tracking timeline for an order
 
 ---
 
-## 6. Korapay Payments
+## 6. Dodo Payments
 
-### `POST /api/korapay/webhook`
+### `POST /api/dodo/webhook`
 
-Receives payment events from Korapay. **This endpoint is called by Korapay only** — do not call it from the frontend.
+Receives payment events from Dodo. **Called by Dodo only** — do not call from the frontend.
 
-- Validates the `x-korapay-signature` header (HMAC-SHA256 of the request body using `KORAPAY_SECRET_KEY`)
-- On `charge.success`, double-verifies with Korapay API, then sets `order.paymentStatus = "paid"`
-- Responds `200` immediately (Korapay requires a fast acknowledgment)
+- Validates HMAC-SHA256 signature using `DODO_WEBHOOK_SECRET`
+- On `payment.success` / `payment.completed`, double-verifies with Dodo API, then sets `order.paymentStatus = "paid"`
+- Responds `200` immediately
 
-> Register this URL in your Korapay dashboard under **Settings → Webhooks**.
+> Register this URL in your Dodo dashboard under **Webhooks**.
 
 ---
 
-### `GET /api/korapay/verify/:reference`
+### `GET /api/dodo/verify/:reference`
 
-Called by the frontend after Korapay redirects the user back to your site. Verifies the transaction and marks the order as paid if confirmed.
+Called by the frontend after Dodo redirects the user back. Verifies the payment and marks the order as paid if confirmed.
 
-**Example:** `GET /api/korapay/verify/OCL-10001`
+**Example:** `GET /api/dodo/verify/pay_xxx`
 
 **Response `200`**
 
@@ -607,8 +588,9 @@ Called by the frontend after Korapay redirects the user back to your site. Verif
 {
   "success": true,
   "data": {
-    "reference": "OCL-10001",
-    "amount": 12500,
+    "reference": "pay_xxx",
+    "amountUsd": 92.5,
+    "currency": "USD",
     "status": "success",
     "orderNumber": "OCL-10001",
     "paidAt": "2026-05-10T10:45:00.000Z"
@@ -622,7 +604,7 @@ Called by the frontend after Korapay redirects the user back to your site. Verif
 {
   "success": false,
   "message": "Payment not completed",
-  "status": "abandoned"
+  "status": "pending"
 }
 ```
 
@@ -1003,8 +985,9 @@ All error responses follow this shape:
 | `RESEND_API_KEY`             | Yes      | Resend API key for emails                                         |
 | `EMAIL_FROM`                 | Yes      | Sender address, e.g. `OCLA Botanical <orders@oclabotanicals.com>` |
 | `ADMIN_EMAIL`                | Yes      | Admin email — receives new order alerts                           |
-| `KORAPAY_SECRET_KEY`         | Yes      | Korapay secret key for payment and webhook verification           |
-| `KORAPAY_PUBLIC_KEY`         | Yes      | Korapay public key                                                |
+| `DODO_API_KEY`               | Yes      | Dodo Payments secret key                                          |
+| `DODO_WEBHOOK_SECRET`        | Yes      | Dodo webhook signing secret                                       |
+| `DODO_BASE_URL`              | No       | Dodo base URL (default: `https://test.dodopayments.com`)          |
 | `SHIPBUBBLE_API_KEY`         | Yes      | Shipbubble API key for shipping rates and shipment creation       |
 | `IMAGEKIT_PUBLIC_KEY`        | Yes      | ImageKit public key                                               |
 | `IMAGEKIT_PRIVATE_KEY`       | Yes      | ImageKit private key                                              |
