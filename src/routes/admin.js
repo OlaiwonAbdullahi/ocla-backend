@@ -20,6 +20,7 @@ const {
   createZone,
   updateZone,
   deleteZone,
+  listZones,
 } = require("../controllers/shippingZoneController");
 
 // multer — memory storage, 100 MB ceiling (per-file limits enforced in controller)
@@ -54,6 +55,7 @@ router.get("/contact-messages", listContactMessages);
 router.patch("/contact-messages/:id/read", markContactRead);
 
 // Shipping zones
+router.get("/shipping-zones", listZones);
 router.post("/shipping-zones", createZone);
 router.put("/shipping-zones/:id", updateZone);
 router.delete("/shipping-zones/:id", deleteZone);

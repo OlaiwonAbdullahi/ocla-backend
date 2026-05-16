@@ -1,14 +1,10 @@
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const Counter = require("../models/Counter");
+const ShippingZone = require("../models/ShippingZone");
 const { getEstimatedDelivery } = require("../utils/delivery");
-const {
-  calculateTotalWeight,
-  getDynamicShippingRates,
-} = require("../utils/shipping");
 const { sendOrderConfirmation, sendNewOrderAdmin } = require("../utils/email");
 const { createCheckoutSession } = require("../config/dodo");
-const Currency = require("../models/Currency");
 
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -18,12 +14,19 @@ function bad(res, message) {
   return res.status(400).json({ success: false, message });
 }
 
+// Lookup zone: city → state → country (most specific first)
+async function resolveShippingZone({ city, state, country }) {
+  const match = (loc) =>
+    ShippingZone.findOne({ location: { $regex: new RegExp(`^${loc.trim()}$`, "i") } });
+
+  return (await match(city)) || (await match(state)) || (await match(country)) || null;
+}
+
 async function createOrder(req, res, next) {
   try {
     const {
       contact,
       shippingAddress,
-      courierId,
       paymentMethod,
       items,
       currency = "USD",
@@ -31,16 +34,8 @@ async function createOrder(req, res, next) {
     } = req.body;
 
     // ── Contact ───────────────────────────────────────────────────────────────
-    if (
-      !contact?.firstName ||
-      !contact?.lastName ||
-      !contact?.email ||
-      !contact?.phone
-    ) {
-      return bad(
-        res,
-        "All contact fields (firstName, lastName, email, phone) are required",
-      );
+    if (!contact?.firstName || !contact?.lastName || !contact?.email || !contact?.phone) {
+      return bad(res, "All contact fields (firstName, lastName, email, phone) are required");
     }
     if (!validEmail(contact.email)) {
       return bad(res, "Invalid email address");
@@ -51,25 +46,6 @@ async function createOrder(req, res, next) {
     if (!addr?.address || !addr?.city || !addr?.state || !addr?.country) {
       return bad(res, "address, city, state, and country are required");
     }
-
-    // ── Courier ───────────────────────────────────────────────────────────────
-    if (!courierId) return bad(res, "courierId is required");
-
-    const totalWeight = await calculateTotalWeight(items);
-    const availableRates = await getDynamicShippingRates(totalWeight, {
-      ...shippingAddress,
-      firstName: contact.firstName,
-      lastName: contact.lastName,
-      email: contact.email,
-      phone: contact.phone,
-    }, items);
-    const courier = availableRates.find((r) => r._id === courierId);
-
-    if (!courier)
-      return bad(
-        res,
-        "Selected courier rate has expired or is no longer available. Please recalculate shipping.",
-      );
 
     // ── Payment method ────────────────────────────────────────────────────────
     if (paymentMethod !== "dodo") {
@@ -83,24 +59,10 @@ async function createOrder(req, res, next) {
 
     const orderItems = [];
     for (const item of items) {
-      if (
-        !item.productId ||
-        !item.unitLabel ||
-        !item.quantity ||
-        !item.name ||
-        !item.description ||
-        item.weight == null ||
-        item.amount == null
-      ) {
-        return bad(
-          res,
-          "Each item needs productId, unitLabel, quantity, name, description, weight, and amount",
-        );
+      if (!item.productId || !item.unitLabel || !item.quantity) {
+        return bad(res, "Each item requires productId, unitLabel, and quantity");
       }
-      if (
-        !Number.isInteger(Number(item.quantity)) ||
-        Number(item.quantity) < 1
-      ) {
+      if (!Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1) {
         return bad(res, "Item quantity must be a positive integer");
       }
 
@@ -109,10 +71,7 @@ async function createOrder(req, res, next) {
 
       const unit = product.units.find((u) => u.label === item.unitLabel);
       if (!unit) {
-        return bad(
-          res,
-          `Unit "${item.unitLabel}" not found for product ${item.productId}`,
-        );
+        return bad(res, `Unit "${item.unitLabel}" not found for product ${item.productId}`);
       }
 
       const qty = Number(item.quantity);
@@ -128,25 +87,28 @@ async function createOrder(req, res, next) {
       });
     }
 
-    // ── Totals ────────────────────────────────────────────────────────────────
-    // NOTE: Products are priced in USD (Base Currency)
-    // Courier price is in NGN, so we convert it to USD
-    const subtotal = parseFloat(orderItems.reduce((s, i) => s + i.lineTotal, 0).toFixed(2)); // in USD
-    const taxAmount = parseFloat(orderItems.reduce((s, i) => s + i.lineTotal * (i.taxRate / 100), 0).toFixed(2)); // in USD
+    // ── Shipping zone ─────────────────────────────────────────────────────────
+    const zone = await resolveShippingZone({
+      city: addr.city,
+      state: addr.state,
+      country: addr.country,
+    });
 
-    const usdCurrency = await Currency.findOne({ code: "USD", isActive: true });
-    if (!usdCurrency) {
-      return res.status(400).json({
-        success: false,
-        message: "USD rate is not configured. Contact the store admin.",
-      });
+    if (!zone) {
+      return bad(
+        res,
+        `Delivery is not available to ${addr.city}, ${addr.country}. Please contact us for shipping options.`,
+      );
     }
 
-    const deliveryPriceUsd = parseFloat(
-      (courier.price / usdCurrency.rateToNgn).toFixed(2),
+    // ── Totals ────────────────────────────────────────────────────────────────
+    const subtotal = parseFloat(orderItems.reduce((s, i) => s + i.lineTotal, 0).toFixed(2));
+    const taxAmount = parseFloat(
+      orderItems.reduce((s, i) => s + i.lineTotal * (i.taxRate / 100), 0).toFixed(2),
     );
-    const grandTotal = parseFloat((subtotal + taxAmount + deliveryPriceUsd).toFixed(2)); // in USD
-    const estimatedDelivery = getEstimatedDelivery(courier.estimatedDays);
+    const deliveryPrice = zone.fee; // in USD
+    const grandTotal = parseFloat((subtotal + taxAmount + deliveryPrice).toFixed(2));
+    const estimatedDelivery = getEstimatedDelivery(zone.estimatedDays || 7);
 
     // ── Order number ──────────────────────────────────────────────────────────
     const seq = await Counter.nextSeq("orderNumber");
@@ -168,14 +130,9 @@ async function createOrder(req, res, next) {
         country: addr.country,
       },
       items: orderItems,
-      courierId: courier._id,
-      courierName: courier.name,
-      deliveryPrice: deliveryPriceUsd,
-      estimatedDays: courier.estimatedDays,
-      shipbubbleRequestToken: courier.request_token || null,
-      shipbubbleServiceCode: courier.service_code || null,
-      shipbubbleCourierId: courier.courier_id ? String(courier.courier_id) : null,
-
+      deliveryZone: zone.location,
+      deliveryPrice,
+      estimatedDays: zone.estimatedDays || 7,
       subtotal,
       taxAmount,
       grandTotal,
@@ -195,7 +152,7 @@ async function createOrder(req, res, next) {
     sendOrderConfirmation(order).catch(console.error);
     sendNewOrderAdmin(order).catch(console.error);
 
-    // ── Response ──────────────────────────────────────────────────────────────
+    // ── Dodo checkout session ─────────────────────────────────────────────────
     const dodo = await createCheckoutSession({
       orderNumber,
       amountUsd: grandTotal,
@@ -206,9 +163,7 @@ async function createOrder(req, res, next) {
       language,
     });
 
-    await Order.findByIdAndUpdate(order._id, {
-      paymentReference: dodo.sessionId,
-    });
+    await Order.findByIdAndUpdate(order._id, { paymentReference: dodo.sessionId });
 
     res.status(201).json({
       success: true,
@@ -216,10 +171,11 @@ async function createOrder(req, res, next) {
         orderNumber: order.orderNumber,
         subtotal: order.subtotal,
         taxAmount: order.taxAmount,
+        deliveryFee: order.deliveryPrice,
         grandTotal: order.grandTotal,
         currency: currency.toUpperCase(),
+        deliveryZone: zone.location,
         estimatedDelivery: estimatedDelivery.toISOString().split("T")[0],
-        courier: { name: courier.name, estimatedLabel: courier.estimatedLabel },
         paymentMethod: order.paymentMethod,
         dodo: {
           checkoutUrl: dodo.checkoutUrl,
@@ -264,17 +220,9 @@ async function updateOrderStatus(req, res, next) {
   try {
     const { status, label, description, carrier } = req.body;
 
-    const validStatuses = [
-      "processing",
-      "packed",
-      "shipped",
-      "out_for_delivery",
-      "delivered",
-    ];
+    const validStatuses = ["processing", "packed", "shipped", "out_for_delivery", "delivered"];
     if (!validStatuses.includes(status)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid status" });
+      return res.status(400).json({ success: false, message: "Invalid status" });
     }
 
     const order = await Order.findById(req.params.id);
@@ -285,26 +233,11 @@ async function updateOrderStatus(req, res, next) {
     }
 
     const defaults = {
-      processing: {
-        label: "Order Placed",
-        description: "Your order has been received and is being reviewed.",
-      },
-      packed: {
-        label: "Order Packed",
-        description: "Your order has been packed and is ready for dispatch.",
-      },
-      shipped: {
-        label: "Shipped",
-        description: "Your order has been handed to the carrier.",
-      },
-      out_for_delivery: {
-        label: "Out for Delivery",
-        description: "Your order is out for delivery.",
-      },
-      delivered: {
-        label: "Delivered",
-        description: "Your order has been delivered.",
-      },
+      processing: { label: "Order Placed", description: "Your order has been received and is being reviewed." },
+      packed: { label: "Order Packed", description: "Your order has been packed and is ready for dispatch." },
+      shipped: { label: "Shipped", description: "Your order has been handed to the carrier." },
+      out_for_delivery: { label: "Out for Delivery", description: "Your order is out for delivery." },
+      delivered: { label: "Delivered", description: "Your order has been delivered." },
     };
 
     order.status = status;

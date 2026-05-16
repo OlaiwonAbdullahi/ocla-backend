@@ -72,11 +72,10 @@ const orderSchema = new mongoose.Schema(
       default: "processing",
     },
 
-    // Courier (snapshot at order time so deletions don't break history)
-    courierId: { type: String },
-    courierName: { type: String, required: true },
+    // Shipping zone snapshot at order time
+    deliveryZone: { type: String },
     deliveryPrice: { type: Number, required: true },
-    estimatedDays: { type: Number, required: true },
+    estimatedDays: { type: Number },
 
     subtotal: { type: Number, required: true },
     taxAmount: { type: Number, required: true, default: 0 },
