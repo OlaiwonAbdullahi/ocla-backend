@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { listCurrencies, getCurrency } = require('../controllers/currencyController');
+const { convertFromUsd } = require('../controllers/currencyController');
 
-router.get('/', listCurrencies);
-router.get('/:code', getCurrency);
+// GET /api/currencies?to=GBP
+// GET /api/currencies/GBP
+router.get('/', convertFromUsd);
+router.get('/:code', convertFromUsd);
 
 module.exports = router;

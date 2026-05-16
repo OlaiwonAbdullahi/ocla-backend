@@ -82,7 +82,7 @@ const orderSchema = new mongoose.Schema(
 
     paymentMethod: {
       type: String,
-      enum: ["bank", "korapay", "dodo"],
+      enum: ["dodo"],
       required: true,
     },
     paymentStatus: {

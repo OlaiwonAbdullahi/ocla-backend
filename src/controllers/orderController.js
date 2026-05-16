@@ -7,15 +7,8 @@ const {
   getDynamicShippingRates,
 } = require("../utils/shipping");
 const { sendOrderConfirmation, sendNewOrderAdmin } = require("../utils/email");
-const { initializeTransaction } = require("../config/korapay");
 const { createDodoPayment } = require("../config/dodo");
 const Currency = require("../models/Currency");
-
-const BANK_DETAILS = {
-  bank: "Zenith Bank",
-  accountName: "OCLA Botanical Ltd",
-  accountNo: "1234567890",
-};
 
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -72,11 +65,8 @@ async function createOrder(req, res, next) {
       );
 
     // ── Payment method ────────────────────────────────────────────────────────
-    if (!["bank", "korapay", "dodo"].includes(paymentMethod)) {
-      return bad(
-        res,
-        'Invalid paymentMethod. Use "bank", "korapay", or "dodo"',
-      );
+    if (paymentMethod !== "dodo") {
+      return bad(res, 'Invalid paymentMethod. Use "dodo"');
     }
 
     // ── Items ─────────────────────────────────────────────────────────────────
@@ -195,54 +185,33 @@ async function createOrder(req, res, next) {
     sendNewOrderAdmin(order).catch(console.error);
 
     // ── Response ──────────────────────────────────────────────────────────────
-    const response = {
-      orderNumber: order.orderNumber,
-      grandTotal: order.grandTotal,
-      estimatedDelivery: estimatedDelivery.toISOString().split("T")[0],
-      courier: { name: courier.name, estimatedLabel: courier.estimatedLabel },
-      paymentMethod: order.paymentMethod,
-    };
+    const dodo = await createDodoPayment({
+      orderNumber,
+      amountNaira: grandTotal * usdCurrency.rateToNgn,
+      rateToNgn: usdCurrency.rateToNgn,
+      email: contact.email,
+      name: `${contact.firstName} ${contact.lastName}`,
+      country: addr.country,
+    });
 
-    if (paymentMethod === "bank") {
-      response.bankDetails = BANK_DETAILS;
-    }
+    await Order.findByIdAndUpdate(order._id, {
+      paymentReference: dodo.reference,
+    });
 
-    if (paymentMethod === "korapay") {
-      // Convert USD grandTotal to NGN for Korapay
-      const amountNaira = Math.round(grandTotal * usdCurrency.rateToNgn);
-
-      const korapay = await initializeTransaction({
-        email: contact.email,
-        amount: amountNaira,
-        reference: orderNumber,
-        customerName: `${contact.firstName} ${contact.lastName}`,
-      });
-      response.korapay = {
-        checkoutUrl: korapay.checkout_url,
-        reference: korapay.reference,
-      };
-    }
-
-    if (paymentMethod === "dodo") {
-      const dodo = await createDodoPayment({
-        orderNumber,
-        amountNaira: grandTotal * usdCurrency.rateToNgn,
-        rateToNgn: usdCurrency.rateToNgn,
-        email: contact.email,
-        name: `${contact.firstName} ${contact.lastName}`,
-        country: addr.country,
-      });
-      // Store the Dodo payment reference for webhook matching
-      await Order.findByIdAndUpdate(order._id, {
-        paymentReference: dodo.reference,
-      });
-      response.dodo = {
-        checkoutUrl: dodo.checkoutUrl,
-        reference: dodo.reference,
-      };
-    }
-
-    res.status(201).json({ success: true, data: response });
+    res.status(201).json({
+      success: true,
+      data: {
+        orderNumber: order.orderNumber,
+        grandTotal: order.grandTotal,
+        estimatedDelivery: estimatedDelivery.toISOString().split("T")[0],
+        courier: { name: courier.name, estimatedLabel: courier.estimatedLabel },
+        paymentMethod: order.paymentMethod,
+        dodo: {
+          checkoutUrl: dodo.checkoutUrl,
+          reference: dodo.reference,
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }

@@ -152,32 +152,6 @@ function totalsBlock(subtotal, deliveryPrice, grandTotal) {
     </table>`;
 }
 
-function bankDetailsBlock(grandTotal) {
-  return `
-    <div style="background-color:#F0F7F4;border:1px solid #B7DFD0;border-radius:8px;padding:20px 24px;margin:24px 0;">
-      <p style="margin:0 0 12px;font-size:14px;font-weight:700;color:${BRAND.primary};text-transform:uppercase;letter-spacing:0.5px;">Bank Transfer Details</p>
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="font-size:13px;color:${BRAND.textMuted};padding:4px 0;width:40%;">Bank</td>
-          <td style="font-size:13px;color:${BRAND.text};font-weight:600;padding:4px 0;">Zenith Bank</td>
-        </tr>
-        <tr>
-          <td style="font-size:13px;color:${BRAND.textMuted};padding:4px 0;">Account Name</td>
-          <td style="font-size:13px;color:${BRAND.text};font-weight:600;padding:4px 0;">OCLA Botanical Ltd</td>
-        </tr>
-        <tr>
-          <td style="font-size:13px;color:${BRAND.textMuted};padding:4px 0;">Account Number</td>
-          <td style="font-size:14px;color:${BRAND.text};font-weight:700;padding:4px 0;letter-spacing:1px;">1234567890</td>
-        </tr>
-        <tr>
-          <td style="font-size:13px;color:${BRAND.textMuted};padding:8px 0 4px;">Amount to Pay</td>
-          <td style="font-size:15px;color:${BRAND.primary};font-weight:700;padding:8px 0 4px;">₦${grandTotal.toLocaleString()}</td>
-        </tr>
-      </table>
-      <p style="margin:12px 0 0;font-size:12px;color:${BRAND.textMuted};">Please use your order number <strong>${""}OCL-XXXXX</strong> as the transfer reference. Your order will be processed once payment is confirmed.</p>
-    </div>`;
-}
-
 // ── Exported template functions ────────────────────────────────────────────────
 
 function orderConfirmationTemplate(order) {
@@ -193,12 +167,6 @@ function orderConfirmationTemplate(order) {
     express: "Express Shipping",
     pickup: "Pickup (Lagos)",
   };
-  const paymentLabels = {
-    bank: "Bank Transfer",
-    korapay: "Card Payment (Korapay)",
-    dodo: "International Payment (Dodo)",
-  };
-
   const addressLine = [
     order.shippingAddress.address,
     order.shippingAddress.address2,
@@ -209,15 +177,9 @@ function orderConfirmationTemplate(order) {
     .filter(Boolean)
     .join(", ");
 
-  const paymentSection =
-    order.paymentMethod === "bank"
-      ? bankDetailsBlock(order.grandTotal).replace(
-          "OCL-XXXXX",
-          order.orderNumber,
-        )
-      : `<div style="background-color:#F0F7F4;border:1px solid #B7DFD0;border-radius:8px;padding:16px 24px;margin:24px 0;">
-        <p style="margin:0;font-size:14px;color:${BRAND.primary};font-weight:600;">✓ Payment via Korapay — we'll confirm once your payment is complete.</p>
-       </div>`;
+  const paymentSection = `<div style="background-color:#F0F7F4;border:1px solid #B7DFD0;border-radius:8px;padding:16px 24px;margin:24px 0;">
+    <p style="margin:0;font-size:14px;color:${BRAND.primary};font-weight:600;">✓ Payment via Dodo — we'll confirm once your payment is complete.</p>
+  </div>`;
 
   const trackUrl = `${process.env.FRONTEND_URL || "https://oclabotanicals.com"}/track/${order.orderNumber}`;
 

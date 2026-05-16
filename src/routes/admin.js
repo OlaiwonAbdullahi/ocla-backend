@@ -13,11 +13,6 @@ const {
 } = require("../controllers/adminController");
 const { uploadSingle, uploadBatch } = require("../controllers/mediaController");
 const {
-  listAllCurrencies,
-  toggleCurrencyVisibility,
-  syncRates,
-} = require("../controllers/currencyController");
-const {
   listContactMessages,
   markContactRead,
 } = require("../controllers/contactController");
@@ -44,11 +39,6 @@ router.post("/media/upload/batch", upload.array("files", 10), uploadBatch);
 router.post("/products", createProduct);
 router.put("/products/:id", updateProduct);
 router.delete("/products/:id", deleteProduct);
-
-// Currency Management
-router.get("/currencies", listAllCurrencies);
-router.post("/currencies/sync", syncRates);
-router.patch("/currencies/:code", toggleCurrencyVisibility);
 
 // Orders
 router.get("/orders", listOrders);
