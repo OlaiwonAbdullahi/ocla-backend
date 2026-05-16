@@ -1,8 +1,21 @@
 const axios = require("axios");
 
-const frankfurter = axios.create({ baseURL: "https://api.frankfurter.app" });
+const erApi = axios.create({ baseURL: "https://open.er-api.com/v6" });
 
-// GET /api/currencies?to=GBP  OR  GET /api/currencies/GBP
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+let cache = { rates: null, date: null, fetchedAt: 0 };
+
+async function getRates() {
+  if (cache.rates && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
+    return cache;
+  }
+  const { data } = await erApi.get("/latest/USD");
+  if (data.result !== "success") throw new Error("Exchange rate service unavailable");
+  cache = { rates: data.rates, date: data.time_last_update_utc, fetchedAt: Date.now() };
+  return cache;
+}
+
+// GET /api/currencies?to=NGN  OR  GET /api/currencies/NGN
 // Returns: 1 USD expressed in the requested currency
 
 async function convertFromUsd(req, res, next) {
@@ -15,11 +28,9 @@ async function convertFromUsd(req, res, next) {
       });
     }
 
-    const { data } = await frankfurter.get("/latest", {
-      params: { from: "USD", to: code },
-    });
+    const { rates, date } = await getRates();
 
-    const rate = data.rates[code];
+    const rate = rates[code];
     if (rate === undefined) {
       return res.status(404).json({
         success: false,
@@ -29,20 +40,9 @@ async function convertFromUsd(req, res, next) {
 
     res.json({
       success: true,
-      data: {
-        base: "USD",
-        target: code,
-        rate,
-        date: data.date,
-      },
+      data: { base: "USD", target: code, rate, date },
     });
   } catch (err) {
-    if (err.response?.status === 404) {
-      return res.status(404).json({
-        success: false,
-        message: `Currency "${(req.params.code || req.query.to || "").toUpperCase()}" is not supported.`,
-      });
-    }
     next(err);
   }
 }
