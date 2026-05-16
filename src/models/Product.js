@@ -15,6 +15,7 @@ const productUnitSchema = new mongoose.Schema(
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
     category: { type: String, required: true },
     units: { type: [productUnitSchema], required: true },
     image: { type: String, required: true },

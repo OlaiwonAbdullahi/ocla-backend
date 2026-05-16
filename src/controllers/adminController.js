@@ -2,6 +2,27 @@ const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const Product = require('../models/Product');
 
+function toSlug(name) {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+async function uniqueSlug(base, excludeId = null) {
+  let slug = base;
+  let i = 1;
+  while (true) {
+    const filter = { slug };
+    if (excludeId) filter._id = { $ne: excludeId };
+    const exists = await Product.exists(filter);
+    if (!exists) return slug;
+    slug = `${base}-${i++}`;
+  }
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function login(req, res, next) {
@@ -62,8 +83,10 @@ async function createProduct(req, res, next) {
       }
     }
 
+    const slug = await uniqueSlug(toSlug(name));
+
     const product = await Product.create({
-      name, category, units, image,
+      name, slug, category, units, image,
       images: images || [],
       video,
       badge,
@@ -83,7 +106,7 @@ async function updateProduct(req, res, next) {
     const allowed = [
       'name', 'category', 'units', 'image', 'images', 'video', 'badge',
       'description', 'inci', 'grade', 'shelfLife', 'storage', 'safety',
-      'usageInstructions', 'features',
+      'usageInstructions', 'features', 'slug',
     ];
 
     const updates = {};
@@ -100,6 +123,12 @@ async function updateProduct(req, res, next) {
           return res.status(400).json({ success: false, message: 'Each unit must have label and price' });
         }
       }
+    }
+
+    if (updates.name && !updates.slug) {
+      updates.slug = await uniqueSlug(toSlug(updates.name), req.params.id);
+    } else if (updates.slug) {
+      updates.slug = await uniqueSlug(toSlug(updates.slug), req.params.id);
     }
 
     const product = await Product.findByIdAndUpdate(

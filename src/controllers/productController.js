@@ -42,6 +42,20 @@ async function getProduct(req, res, next) {
   }
 }
 
+async function getProductBySlug(req, res, next) {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug });
+    if (!product) {
+      const err = new Error('Product not found');
+      err.status = 404;
+      return next(err);
+    }
+    res.json({ success: true, data: product });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function listCategories(req, res, next) {
   try {
     const categories = await Product.distinct('category');
@@ -95,4 +109,4 @@ async function createReview(req, res, next) {
   }
 }
 
-module.exports = { listProducts, getProduct, listCategories, getReviews, createReview };
+module.exports = { listProducts, getProduct, getProductBySlug, listCategories, getReviews, createReview };

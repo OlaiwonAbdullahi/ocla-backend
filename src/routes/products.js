@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   listProducts,
   getProduct,
+  getProductBySlug,
   listCategories,
   getReviews,
   createReview,
@@ -10,6 +11,7 @@ const {
 
 router.get('/', listProducts);
 router.get('/categories', listCategories);
+router.get('/slug/:slug', getProductBySlug);
 router.get('/:id', getProduct);
 router.get('/:id/reviews', getReviews);
 router.post('/:id/reviews', createReview);
