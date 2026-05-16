@@ -134,13 +134,19 @@ function itemsTable(items) {
     </table>`;
 }
 
-function totalsBlock(subtotal, deliveryPrice, grandTotal) {
+function totalsBlock(subtotal, taxAmount, deliveryPrice, grandTotal) {
+  const taxRow = taxAmount > 0 ? `
+      <tr>
+        <td style="padding:6px 0;font-size:14px;color:${BRAND.textMuted};">Tax</td>
+        <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">$${taxAmount.toFixed(2)}</td>
+      </tr>` : '';
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
       <tr>
         <td style="padding:6px 0;font-size:14px;color:${BRAND.textMuted};">Subtotal</td>
-        <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">₦${subtotal.toLocaleString()}</td>
+        <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">$${subtotal.toFixed(2)}</td>
       </tr>
+      ${taxRow}
       <tr>
         <td style="padding:6px 0;font-size:14px;color:${BRAND.textMuted};">Delivery</td>
         <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">₦${deliveryPrice.toLocaleString()}</td>
@@ -192,7 +198,7 @@ function orderConfirmationTemplate(order) {
     </div>
 
     ${itemsTable(order.items)}
-    ${totalsBlock(order.subtotal, order.deliveryPrice, order.grandTotal)}
+    ${totalsBlock(order.subtotal, order.taxAmount || 0, order.deliveryPrice, order.grandTotal)}
     ${divider()}
 
     ${infoTable(`
@@ -301,7 +307,7 @@ function newOrderAdminTemplate(order) {
 
     <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:${BRAND.textMuted};text-transform:uppercase;letter-spacing:0.5px;">Order</p>
     ${itemsTable(order.items)}
-    ${totalsBlock(order.subtotal, order.deliveryPrice, order.grandTotal)}
+    ${totalsBlock(order.subtotal, order.taxAmount || 0, order.deliveryPrice, order.grandTotal)}
 
     ${divider()}
 

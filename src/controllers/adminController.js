@@ -106,7 +106,7 @@ async function updateProduct(req, res, next) {
     const allowed = [
       'name', 'category', 'units', 'image', 'images', 'video', 'badge',
       'description', 'inci', 'grade', 'shelfLife', 'storage', 'safety',
-      'usageInstructions', 'features', 'slug',
+      'usageInstructions', 'features', 'slug', 'tax',
     ];
 
     const updates = {};

@@ -7,7 +7,7 @@ const {
   getDynamicShippingRates,
 } = require("../utils/shipping");
 const { sendOrderConfirmation, sendNewOrderAdmin } = require("../utils/email");
-const { createDodoPayment } = require("../config/dodo");
+const { createCheckoutSession } = require("../config/dodo");
 const Currency = require("../models/Currency");
 
 function validEmail(email) {
@@ -20,8 +20,15 @@ function bad(res, message) {
 
 async function createOrder(req, res, next) {
   try {
-    const { contact, shippingAddress, courierId, paymentMethod, items } =
-      req.body;
+    const {
+      contact,
+      shippingAddress,
+      courierId,
+      paymentMethod,
+      items,
+      currency = "USD",
+      language = "en",
+    } = req.body;
 
     // ── Contact ───────────────────────────────────────────────────────────────
     if (
@@ -109,20 +116,23 @@ async function createOrder(req, res, next) {
       }
 
       const qty = Number(item.quantity);
+      const lineTotal = parseFloat((unit.price * qty).toFixed(2));
       orderItems.push({
         productId: product._id,
         productName: product.name,
         unitLabel: unit.label,
         unitPrice: unit.price,
         quantity: qty,
-        lineTotal: unit.price * qty,
+        lineTotal,
+        taxRate: product.tax || 0,
       });
     }
 
     // ── Totals ────────────────────────────────────────────────────────────────
     // NOTE: Products are priced in USD (Base Currency)
     // Courier price is in NGN, so we convert it to USD
-    const subtotal = orderItems.reduce((s, i) => s + i.lineTotal, 0); // in USD
+    const subtotal = parseFloat(orderItems.reduce((s, i) => s + i.lineTotal, 0).toFixed(2)); // in USD
+    const taxAmount = parseFloat(orderItems.reduce((s, i) => s + i.lineTotal * (i.taxRate / 100), 0).toFixed(2)); // in USD
 
     const usdCurrency = await Currency.findOne({ code: "USD", isActive: true });
     if (!usdCurrency) {
@@ -135,7 +145,7 @@ async function createOrder(req, res, next) {
     const deliveryPriceUsd = parseFloat(
       (courier.price / usdCurrency.rateToNgn).toFixed(2),
     );
-    const grandTotal = subtotal + deliveryPriceUsd; // in USD
+    const grandTotal = parseFloat((subtotal + taxAmount + deliveryPriceUsd).toFixed(2)); // in USD
     const estimatedDelivery = getEstimatedDelivery(courier.estimatedDays);
 
     // ── Order number ──────────────────────────────────────────────────────────
@@ -167,6 +177,7 @@ async function createOrder(req, res, next) {
       shipbubbleCourierId: courier.courier_id ? String(courier.courier_id) : null,
 
       subtotal,
+      taxAmount,
       grandTotal,
       paymentMethod,
       estimatedDelivery,
@@ -185,30 +196,34 @@ async function createOrder(req, res, next) {
     sendNewOrderAdmin(order).catch(console.error);
 
     // ── Response ──────────────────────────────────────────────────────────────
-    const dodo = await createDodoPayment({
+    const dodo = await createCheckoutSession({
       orderNumber,
-      amountNaira: grandTotal * usdCurrency.rateToNgn,
-      rateToNgn: usdCurrency.rateToNgn,
+      amountUsd: grandTotal,
       email: contact.email,
       name: `${contact.firstName} ${contact.lastName}`,
       country: addr.country,
+      currency,
+      language,
     });
 
     await Order.findByIdAndUpdate(order._id, {
-      paymentReference: dodo.reference,
+      paymentReference: dodo.sessionId,
     });
 
     res.status(201).json({
       success: true,
       data: {
         orderNumber: order.orderNumber,
+        subtotal: order.subtotal,
+        taxAmount: order.taxAmount,
         grandTotal: order.grandTotal,
+        currency: currency.toUpperCase(),
         estimatedDelivery: estimatedDelivery.toISOString().split("T")[0],
         courier: { name: courier.name, estimatedLabel: courier.estimatedLabel },
         paymentMethod: order.paymentMethod,
         dodo: {
           checkoutUrl: dodo.checkoutUrl,
-          reference: dodo.reference,
+          sessionId: dodo.sessionId,
         },
       },
     });

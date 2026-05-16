@@ -14,6 +14,7 @@ const adminRoutes = require("./routes/admin");
 const dodoRoutes = require("./routes/dodo");
 const contactRoutes = require("./routes/contact");
 const contentRoutes = require("./routes/content");
+const shippingZoneRoutes = require("./routes/shippingZones");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
 const mongoSanitize = require("./middleware/sanitize");
 
@@ -75,6 +76,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/dodo", dodoRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/content", contentRoutes);
+app.use("/api/shipping-zones", shippingZoneRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -31,12 +31,14 @@ async function webhook(req, res) {
 
   try {
     const reference = data?.reference ?? data?.payment_id ?? data?.order_id;
-    if (!reference) return;
+    const orderNumber = data?.metadata?.orderNumber;
+    if (!reference && !orderNumber) return;
 
-    // Look up by orderNumber or paymentReference
-    const order = await Order.findOne({
-      $or: [{ orderNumber: reference }, { paymentReference: reference }],
-    });
+    const query = [];
+    if (reference) query.push({ orderNumber: reference }, { paymentReference: reference });
+    if (orderNumber) query.push({ orderNumber });
+
+    const order = await Order.findOne({ $or: query });
     if (!order || order.paymentStatus === "paid") return;
 
     // Double-verify before marking paid

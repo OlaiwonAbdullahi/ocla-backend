@@ -8,6 +8,7 @@ const orderItemSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },
     lineTotal: { type: Number, required: true },
+    taxRate: { type: Number, default: 0 },
   },
   { _id: false },
 );
@@ -78,6 +79,7 @@ const orderSchema = new mongoose.Schema(
     estimatedDays: { type: Number, required: true },
 
     subtotal: { type: Number, required: true },
+    taxAmount: { type: Number, required: true, default: 0 },
     grandTotal: { type: Number, required: true },
 
     paymentMethod: {

@@ -33,6 +33,7 @@ const productSchema = new mongoose.Schema(
     safety: { type: String, required: true },
     usageInstructions: { type: String, required: true },
     features: [String],
+    tax: { type: Number, default: 0, min: 0, max: 100 }, // percentage e.g. 7.5 = 7.5%
     // Computed average rating (updated on each review save)
     ratingAverage: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },

@@ -22,18 +22,18 @@ function toCountryCode(country = "") {
   return COUNTRY_CODES[country.toLowerCase()] || "NG";
 }
 
-async function createDodoPayment({
+async function createCheckoutSession({
   orderNumber,
-  amountNaira,
-  rateToNgn,
+  amountUsd,
   email,
   name,
   country,
+  currency = "USD",
+  language = "en",
 }) {
-  const amountUsd = parseFloat((amountNaira / rateToNgn).toFixed(2));
   const amountCents = Math.round(amountUsd * 100);
 
-  // Step 1: create a one-time product for this order's exact amount
+  // Step 1: create a one-time product priced in USD for this order
   const { data: product } = await client.post("/products", {
     name: `OCLA Order ${orderNumber}`,
     tax_category: "digital_products",
@@ -46,20 +46,21 @@ async function createDodoPayment({
     },
   });
 
-  // Step 2: create the payment using that product
-  const { data } = await client.post("/payments", {
+  // Step 2: create checkout session — Dodo handles currency conversion via billing_currency
+  const { data } = await client.post("/checkouts", {
     product_cart: [{ product_id: product.product_id, quantity: 1 }],
     customer: { email, name },
-    billing: { country: toCountryCode(country) },
+    billing_address: { country: toCountryCode(country) },
+    billing_currency: currency.toUpperCase(),
+    customization: { language },
     return_url: `${process.env.FRONTEND_URL}order/confirm?ref=${orderNumber}`,
-    payment_link: true,
+    cancel_url: `${process.env.FRONTEND_URL}checkout?cancelled=true&ref=${orderNumber}`,
     metadata: { orderNumber },
   });
 
   return {
-    checkoutUrl: data.payment_link,
-    reference: data.payment_id,
-    amountUsd,
+    checkoutUrl: data.checkout_url,
+    sessionId: data.session_id,
   };
 }
 
@@ -70,4 +71,4 @@ async function verifyDodoPayment(reference) {
   return data;
 }
 
-module.exports = { createDodoPayment, verifyDodoPayment };
+module.exports = { createCheckoutSession, verifyDodoPayment };
