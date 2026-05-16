@@ -55,11 +55,11 @@ async function deleteStory(req, res, next) {
 
 async function addGalleryImage(req, res, next) {
   try {
-    const { imageLink } = req.body;
-    if (!imageLink) {
-      return res.status(400).json({ success: false, message: "imageLink is required." });
+    const { title, imageLink } = req.body;
+    if (!title || !imageLink) {
+      return res.status(400).json({ success: false, message: "title and imageLink are required." });
     }
-    const item = await Gallery.create({ imageLink });
+    const item = await Gallery.create({ title, imageLink });
     res.status(201).json({ success: true, data: item });
   } catch (err) {
     next(err);
@@ -77,13 +77,16 @@ async function getGallery(req, res, next) {
 
 async function updateGalleryImage(req, res, next) {
   try {
-    const { imageLink } = req.body;
-    if (!imageLink) {
-      return res.status(400).json({ success: false, message: "imageLink is required." });
+    const { title, imageLink } = req.body;
+    if (!title && !imageLink) {
+      return res.status(400).json({ success: false, message: "Provide at least title or imageLink." });
     }
+    const update = {};
+    if (title !== undefined) update.title = title;
+    if (imageLink !== undefined) update.imageLink = imageLink;
     const item = await Gallery.findByIdAndUpdate(
       req.params.id,
-      { imageLink },
+      update,
       { new: true, runValidators: true },
     );
     if (!item) return res.status(404).json({ success: false, message: "Gallery item not found." });
