@@ -5,6 +5,7 @@ const ShippingZone = require("../models/ShippingZone");
 const { getEstimatedDelivery } = require("../utils/delivery");
 const { sendOrderConfirmation, sendNewOrderAdmin } = require("../utils/email");
 const { createCheckoutSession } = require("../config/dodo");
+const { convertUsd } = require("../utils/exchangeRates");
 
 function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -152,14 +153,17 @@ async function createOrder(req, res, next) {
     sendOrderConfirmation(order).catch(console.error);
     sendNewOrderAdmin(order).catch(console.error);
 
+    // ── Convert grand total to billing currency ───────────────────────────────
+    const { amount: amountInCurrency } = await convertUsd(grandTotal, currency);
+
     // ── Dodo checkout session ─────────────────────────────────────────────────
     const dodo = await createCheckoutSession({
       orderNumber,
-      amountUsd: grandTotal,
+      amountInCurrency,
+      currency,
       email: contact.email,
       name: `${contact.firstName} ${contact.lastName}`,
       country: addr.country,
-      currency,
       language,
     });
 
@@ -173,6 +177,7 @@ async function createOrder(req, res, next) {
         taxAmount: order.taxAmount,
         deliveryFee: order.deliveryPrice,
         grandTotal: order.grandTotal,
+        grandTotalInCurrency: amountInCurrency,
         currency: currency.toUpperCase(),
         deliveryZone: zone.location,
         estimatedDelivery: estimatedDelivery.toISOString().split("T")[0],
