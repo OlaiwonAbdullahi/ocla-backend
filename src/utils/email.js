@@ -45,7 +45,7 @@ async function sendNewOrderAdmin(order) {
   if (!ADMIN_EMAIL) return;
   await send({
     to: ADMIN_EMAIL,
-    subject: `New Order — ${order.orderNumber} (₦${order.grandTotal.toLocaleString()})`,
+    subject: `New Order — ${order.orderNumber} ($${order.grandTotal.toFixed(2)})`,
     html: newOrderAdminTemplate(order),
   });
 }

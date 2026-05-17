@@ -116,7 +116,7 @@ function itemsTable(items) {
         <span style="color:${BRAND.textMuted};font-size:13px;">${i.unitLabel} × ${i.quantity}</span>
       </td>
       <td style="padding:12px 0;font-size:14px;color:${BRAND.text};font-weight:600;text-align:right;border-bottom:1px solid ${BRAND.border};">
-        ₦${i.lineTotal.toLocaleString()}
+        $${i.lineTotal.toFixed(2)}
       </td>
     </tr>`,
     )
@@ -149,11 +149,11 @@ function totalsBlock(subtotal, taxAmount, deliveryPrice, grandTotal) {
       ${taxRow}
       <tr>
         <td style="padding:6px 0;font-size:14px;color:${BRAND.textMuted};">Delivery</td>
-        <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">₦${deliveryPrice.toLocaleString()}</td>
+        <td style="padding:6px 0;font-size:14px;color:${BRAND.text};text-align:right;">$${deliveryPrice.toFixed(2)}</td>
       </tr>
       <tr>
         <td style="padding:12px 0 6px;font-size:16px;font-weight:700;color:${BRAND.text};border-top:2px solid ${BRAND.border};">Grand Total</td>
-        <td style="padding:12px 0 6px;font-size:16px;font-weight:700;color:${BRAND.primary};text-align:right;border-top:2px solid ${BRAND.border};">₦${grandTotal.toLocaleString()}</td>
+        <td style="padding:12px 0 6px;font-size:16px;font-weight:700;color:${BRAND.primary};text-align:right;border-top:2px solid ${BRAND.border};">$${grandTotal.toFixed(2)}</td>
       </tr>
     </table>`;
 }
@@ -168,11 +168,6 @@ function orderConfirmationTemplate(order) {
     day: "numeric",
   });
 
-  const deliveryLabels = {
-    standard: "Standard Shipping",
-    express: "Express Shipping",
-    pickup: "Pickup (Lagos)",
-  };
   const addressLine = [
     order.shippingAddress.address,
     order.shippingAddress.address2,
@@ -203,8 +198,8 @@ function orderConfirmationTemplate(order) {
 
     ${infoTable(`
       ${infoRow("Estimated Delivery", `<strong>${eta}</strong>`)}
-      ${infoRow("Delivery Carrier", order.courierName)}
-      ${infoRow("Payment Method", paymentLabels[order.paymentMethod] || order.paymentMethod)}
+      ${infoRow("Delivery Zone", order.deliveryZone || "—")}
+      ${infoRow("Payment Method", "Dodo Payments")}
       ${infoRow("Shipping To", addressLine)}
     `)}
 
@@ -313,7 +308,7 @@ function newOrderAdminTemplate(order) {
 
     <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:${BRAND.textMuted};text-transform:uppercase;letter-spacing:0.5px;">Delivery</p>
     ${infoTable(`
-      ${infoRow("Carrier", order.courierName)}
+      ${infoRow("Delivery Zone", order.deliveryZone || "—")}
       ${infoRow(
         "Address",
         [
