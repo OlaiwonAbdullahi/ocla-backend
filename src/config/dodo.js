@@ -24,24 +24,24 @@ function toCountryCode(country = "") {
 
 async function createCheckoutSession({
   orderNumber,
-  amountInCurrency,  // grand total already converted to billing currency
-  currency = "USD",
+  amountUsd,         // grand total in USD — Dodo product is always priced in USD
+  currency = "USD",  // billing currency shown to customer (Dodo converts internally)
   email,
   name,
   country,
   language = "en",
 }) {
-  const amountCents = Math.round(amountInCurrency * 100);
+  const amountCents = Math.round(amountUsd * 100);
   const billingCurrency = currency.toUpperCase();
 
-  // Step 1: create a one-time product priced in the customer's billing currency
+  // Step 1: create a one-time product — price must be in a Dodo-supported currency (USD)
   const { data: product } = await client.post("/products", {
     name: `OCLA Order ${orderNumber}`,
     tax_category: "digital_products",
     price: {
       type: "one_time_price",
       price: amountCents,
-      currency: billingCurrency,
+      currency: "USD",
       discount: 0,
       purchasing_power_parity: false,
     },

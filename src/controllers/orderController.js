@@ -153,13 +153,13 @@ async function createOrder(req, res, next) {
     sendOrderConfirmation(order).catch(console.error);
     sendNewOrderAdmin(order).catch(console.error);
 
-    // ── Convert grand total to billing currency ───────────────────────────────
+    // Convert for display only — Dodo product is always priced in USD
     const { amount: amountInCurrency } = await convertUsd(grandTotal, currency);
 
     // ── Dodo checkout session ─────────────────────────────────────────────────
     const dodo = await createCheckoutSession({
       orderNumber,
-      amountInCurrency,
+      amountUsd: grandTotal,
       currency,
       email: contact.email,
       name: `${contact.firstName} ${contact.lastName}`,
