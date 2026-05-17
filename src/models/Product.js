@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const productUnitSchema = new mongoose.Schema(
   {
@@ -6,16 +6,22 @@ const productUnitSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     weight: { type: Number, required: true, default: 0 }, // in kg
     length: { type: Number, default: 10 }, // in cm
-    width: { type: Number, default: 10 },  // in cm
+    width: { type: Number, default: 10 }, // in cm
     height: { type: Number, default: 10 }, // in cm
   },
-  { _id: false }
+  { _id: false },
 );
 
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    slug: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     category: { type: String, required: true },
     units: { type: [productUnitSchema], required: true },
     image: { type: String, required: true },
@@ -23,7 +29,7 @@ const productSchema = new mongoose.Schema(
     video: String,
     badge: {
       type: String,
-      enum: ['Best Seller', 'New', 'Popular'],
+      enum: ["Best Seller", "New", "Popular", "Sold"],
     },
     description: { type: String, required: true },
     inci: { type: String, required: true },
@@ -38,9 +44,9 @@ const productSchema = new mongoose.Schema(
     ratingAverage: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-productSchema.index({ name: 'text', description: 'text' });
+productSchema.index({ name: "text", description: "text" });
 
-module.exports = mongoose.model('Product', productSchema);
+module.exports = mongoose.model("Product", productSchema);
