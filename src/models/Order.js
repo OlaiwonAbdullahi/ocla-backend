@@ -94,12 +94,6 @@ const orderSchema = new mongoose.Schema(
     // Stored for Dodo webhook matching (USD payments use a separate gateway ref)
     paymentReference: { type: String },
 
-    // Shipbubble references (populated at order creation from rate data)
-    shipbubbleRequestToken: { type: String },
-    shipbubbleServiceCode: { type: String },
-    shipbubbleCourierId: { type: String },
-    // Populated after admin starts shipment
-    shipbubbleOrderId: { type: String },
     trackingUrl: { type: String },
 
     estimatedDelivery: { type: Date, required: true },

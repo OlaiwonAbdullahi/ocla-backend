@@ -159,46 +159,47 @@ async function deleteProduct(req, res, next) {
   }
 }
 
-// ── Shipment ──────────────────────────────────────────────────────────────────
+// ── Order status (manual, admin dashboard) ────────────────────────────────────
 
-async function startShipment(req, res, next) {
+const STATUS_DEFAULTS = {
+  processing: { label: 'Order Placed',    description: 'Your order has been received and is being reviewed.' },
+  packed:     { label: 'Order Packed',    description: 'Your order has been packed and is ready for dispatch.' },
+  shipped:    { label: 'Shipped',         description: 'Your order has been handed to the carrier.' },
+  out_for_delivery: { label: 'Out for Delivery', description: 'Your order is out for delivery.' },
+  delivered:  { label: 'Delivered',       description: 'Your order has been delivered successfully.' },
+};
+
+async function updateOrderStatus(req, res, next) {
   try {
     const Order = require('../models/Order');
-    const { createShipment } = require('../config/shipbubble');
-    const { sendShippedNotification } = require('../utils/email');
+    const { sendShippedNotification, sendDeliveredNotification } = require('../utils/email');
+
+    const { status, label, description, carrier, trackingUrl } = req.body;
+
+    if (!STATUS_DEFAULTS[status]) {
+      return res.status(400).json({ success: false, message: `Invalid status. Use: ${Object.keys(STATUS_DEFAULTS).join(', ')}` });
+    }
 
     const order = await Order.findById(req.params.id);
-    if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-    if (order.shipbubbleOrderId) {
-      return res.status(400).json({ success: false, message: 'Shipment already created for this order' });
-    }
-    if (!order.shipbubbleRequestToken || !order.shipbubbleServiceCode || !order.shipbubbleCourierId) {
-      return res.status(400).json({ success: false, message: 'Order is missing Shipbubble rate data. Please re-create the order.' });
-    }
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    const shipment = await createShipment({
-      request_token: order.shipbubbleRequestToken,
-      service_code: order.shipbubbleServiceCode,
-      courier_id: order.shipbubbleCourierId,
-    });
+    order.status = status;
+    if (carrier) order.carrier = carrier;
+    if (trackingUrl) order.trackingUrl = trackingUrl;
 
-    order.shipbubbleOrderId = shipment.order_id;
-    order.trackingUrl = shipment.tracking_url;
-    order.carrier = shipment.courier?.name || order.courierName;
-    order.status = 'shipped';
     order.trackingEvents.push({
-      status: 'shipped',
-      label: 'Shipped',
-      description: `Your order has been handed to ${shipment.courier?.name || 'the carrier'}.`,
+      status,
+      label: label || STATUS_DEFAULTS[status].label,
+      description: description || STATUS_DEFAULTS[status].description,
       timestamp: new Date(),
     });
+
     await order.save();
 
-    sendShippedNotification(order).catch(console.error);
+    if (status === 'shipped') sendShippedNotification(order).catch(console.error);
+    if (status === 'delivered') sendDeliveredNotification(order).catch(console.error);
 
-    res.json({ success: true, data: { shipbubbleOrderId: shipment.order_id, trackingUrl: shipment.tracking_url } });
+    res.json({ success: true, data: order });
   } catch (err) {
     next(err);
   }
@@ -380,4 +381,4 @@ async function getDashboard(req, res, next) {
   }
 }
 
-module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders, startShipment, listTransactions, getDashboard };
+module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders, updateOrderStatus, listTransactions, getDashboard };

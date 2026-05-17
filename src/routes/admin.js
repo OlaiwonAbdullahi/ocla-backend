@@ -9,7 +9,7 @@ const {
   updateProduct,
   deleteProduct,
   listOrders,
-  startShipment,
+  updateOrderStatus,
   listTransactions,
   getDashboard,
 } = require("../controllers/adminController");
@@ -53,7 +53,7 @@ router.get("/dashboard", getDashboard);
 
 // Orders
 router.get("/orders", listOrders);
-router.post("/orders/:id/ship", startShipment);
+router.patch("/orders/:id/status", updateOrderStatus);
 
 // Transactions
 router.get("/transactions", listTransactions);
