@@ -63,7 +63,7 @@ async function createProduct(req, res, next) {
     const {
       name, category, units, image, images, video, badge,
       description, inci, grade, shelfLife, storage, safety,
-      usageInstructions, features,
+      usageInstructions, features, tax,
     } = req.body;
 
     const missing = ['name', 'category', 'units', 'image', 'description',
@@ -93,6 +93,7 @@ async function createProduct(req, res, next) {
       description, inci, grade, shelfLife, storage, safety,
       usageInstructions,
       features: features || [],
+      tax: tax ?? 0,
     });
 
     res.status(201).json({ success: true, data: product });
