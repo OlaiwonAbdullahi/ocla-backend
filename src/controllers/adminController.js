@@ -228,4 +228,156 @@ async function listOrders(req, res, next) {
   }
 }
 
-module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders, startShipment };
+// ── Transactions ──────────────────────────────────────────────────────────────
+
+async function listTransactions(req, res, next) {
+  try {
+    const Order = require('../models/Order');
+    const { paymentStatus, from, to, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (paymentStatus) filter.paymentStatus = paymentStatus;
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = new Date(from);
+      if (to) filter.createdAt.$lte = new Date(to);
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [transactions, total] = await Promise.all([
+      Order.find(filter)
+        .select('orderNumber contactFirstName contactLastName contactEmail subtotal taxAmount deliveryPrice grandTotal paymentStatus paymentMethod paymentReference deliveryZone createdAt')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
+      Order.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: transactions,
+      pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── Dashboard overview ────────────────────────────────────────────────────────
+
+async function getDashboard(req, res, next) {
+  try {
+    const Order = require('../models/Order');
+    const Product = require('../models/Product');
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const [
+      totalRevenue,
+      revenueThisMonth,
+      revenueLastMonth,
+      ordersByStatus,
+      ordersByPayment,
+      totalOrders,
+      totalProducts,
+      recentOrders,
+      topProducts,
+    ] = await Promise.all([
+      // Total revenue (paid orders)
+      Order.aggregate([
+        { $match: { paymentStatus: 'paid' } },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } },
+      ]),
+
+      // Revenue this month
+      Order.aggregate([
+        { $match: { paymentStatus: 'paid', createdAt: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } },
+      ]),
+
+      // Revenue last month
+      Order.aggregate([
+        { $match: { paymentStatus: 'paid', createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } } },
+        { $group: { _id: null, total: { $sum: '$grandTotal' } } },
+      ]),
+
+      // Orders by fulfillment status
+      Order.aggregate([
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+
+      // Orders by payment status
+      Order.aggregate([
+        { $group: { _id: '$paymentStatus', count: { $sum: 1 } } },
+      ]),
+
+      // Total order count
+      Order.countDocuments(),
+
+      // Total product count
+      Product.countDocuments(),
+
+      // Recent 5 orders
+      Order.find()
+        .select('orderNumber contactFirstName contactLastName grandTotal paymentStatus status createdAt')
+        .sort({ createdAt: -1 })
+        .limit(5),
+
+      // Top 5 products by units sold
+      Order.aggregate([
+        { $match: { paymentStatus: 'paid' } },
+        { $unwind: '$items' },
+        { $group: { _id: '$items.productName', unitsSold: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } },
+        { $sort: { unitsSold: -1 } },
+        { $limit: 5 },
+      ]),
+    ]);
+
+    const revenueThisMonthVal = parseFloat((revenueThisMonth[0]?.total || 0).toFixed(2));
+    const revenueLastMonthVal = parseFloat((revenueLastMonth[0]?.total || 0).toFixed(2));
+    const revenueGrowth = revenueLastMonthVal === 0
+      ? null
+      : parseFloat((((revenueThisMonthVal - revenueLastMonthVal) / revenueLastMonthVal) * 100).toFixed(1));
+
+    const statusMap = Object.fromEntries(ordersByStatus.map((s) => [s._id, s.count]));
+    const paymentMap = Object.fromEntries(ordersByPayment.map((s) => [s._id, s.count]));
+
+    res.json({
+      success: true,
+      data: {
+        revenue: {
+          total: parseFloat((totalRevenue[0]?.total || 0).toFixed(2)),
+          thisMonth: revenueThisMonthVal,
+          lastMonth: revenueLastMonthVal,
+          growthPercent: revenueGrowth,
+        },
+        orders: {
+          total: totalOrders,
+          byStatus: {
+            processing: statusMap.processing || 0,
+            packed: statusMap.packed || 0,
+            shipped: statusMap.shipped || 0,
+            out_for_delivery: statusMap.out_for_delivery || 0,
+            delivered: statusMap.delivered || 0,
+          },
+          byPayment: {
+            pending: paymentMap.pending || 0,
+            paid: paymentMap.paid || 0,
+            failed: paymentMap.failed || 0,
+          },
+        },
+        products: { total: totalProducts },
+        recentOrders,
+        topProducts,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, getMe, createProduct, updateProduct, deleteProduct, listOrders, startShipment, listTransactions, getDashboard };

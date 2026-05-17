@@ -10,6 +10,8 @@ const {
   deleteProduct,
   listOrders,
   startShipment,
+  listTransactions,
+  getDashboard,
 } = require("../controllers/adminController");
 const { uploadSingle, uploadBatch } = require("../controllers/mediaController");
 const {
@@ -46,9 +48,15 @@ router.post("/products", createProduct);
 router.put("/products/:id", updateProduct);
 router.delete("/products/:id", deleteProduct);
 
+// Dashboard
+router.get("/dashboard", getDashboard);
+
 // Orders
 router.get("/orders", listOrders);
 router.post("/orders/:id/ship", startShipment);
+
+// Transactions
+router.get("/transactions", listTransactions);
 
 // Contact messages
 router.get("/contact-messages", listContactMessages);

@@ -43,10 +43,7 @@ async function webhook(req, res) {
 
     // Double-verify before marking paid
     const payment = await verifyDodoPayment(reference);
-    const success = ["success", "completed", "paid"].includes(
-      payment.status?.toLowerCase(),
-    );
-    if (!success) return;
+    if (!DODO_SUCCESS.includes(payment.status?.toLowerCase())) return;
 
     // Verify amount matches
     if (Math.abs(payment.amount - order.grandTotal) > 0.05) {
@@ -63,15 +60,15 @@ async function webhook(req, res) {
   }
 }
 
-// GET /api/dodo/verify/:reference  — frontend calls after redirect
+const DODO_SUCCESS = ["succeeded", "success", "completed", "paid"];
+
+// GET /api/dodo/verify/:reference  — frontend calls after redirect with payment_id
 async function verifyPayment(req, res, next) {
   try {
     const { reference } = req.params;
 
     const payment = await verifyDodoPayment(reference);
-    const success = ["success", "completed", "paid"].includes(
-      payment.status?.toLowerCase(),
-    );
+    const success = DODO_SUCCESS.includes(payment.status?.toLowerCase());
 
     if (!success) {
       return res.status(402).json({
@@ -81,33 +78,31 @@ async function verifyPayment(req, res, next) {
       });
     }
 
+    // Look up order: first by metadata.orderNumber (most reliable),
+    // then by orderNumber or paymentReference as fallback
+    const metaOrderNumber = payment.metadata?.orderNumber;
     const order = await Order.findOne({
-      $or: [{ orderNumber: reference }, { paymentReference: reference }],
+      $or: [
+        ...(metaOrderNumber ? [{ orderNumber: metaOrderNumber }] : []),
+        { orderNumber: reference },
+        { paymentReference: reference },
+      ],
     });
 
-    if (order) {
-      // Verify amount matches
-      if (Math.abs(payment.amount - order.grandTotal) > 0.05) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Amount mismatch" });
-      }
-
-      if (order.paymentStatus !== "paid") {
-        order.paymentStatus = "paid";
-        await order.save();
-      }
+    if (order && order.paymentStatus !== "paid") {
+      order.paymentStatus = "paid";
+      await order.save();
     }
 
     res.json({
       success: true,
       data: {
-        reference: payment.reference ?? reference,
-        amountUsd: payment.amount,
+        reference: payment.payment_id ?? reference,
+        amountUsd: payment.total_amount ?? payment.amount,
         currency: payment.currency ?? "USD",
         status: payment.status,
-        orderNumber: order?.orderNumber ?? reference,
-        paidAt: payment.paid_at ?? payment.created_at,
+        orderNumber: order?.orderNumber ?? metaOrderNumber ?? reference,
+        paidAt: payment.created_at,
       },
     });
   } catch (err) {
